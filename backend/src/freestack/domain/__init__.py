@@ -1,1 +1,1 @@
-"""FreeStack domain models."""
+"""FreeStack domain."""

@@ -152,4 +152,49 @@ Service는 Plan이 독립적으로 붙는 제품 단위다. Plan은 한 Service�
 - 가격과 무료 여부는 실제 제공 조건을 조사한 뒤 별도 Task에서 설계한다.
 - 타입 체커를 도입하면 `NewType`으로 id를 나눌지 그때 검토한다.
 
+## FREE-004 — Repository Layer
+
+### Goal
+
+Provider, Service, Plan을 저장하고 ID로 조회하는 Repository Layer를 만든다. 저장소 기술과 무관한 계약과 그 계약을 만족하는 인메모리 구현을 둔다. PostgreSQL과 Supabase는 연결하지 않는다.
+
+### Design
+
+- `CatalogRepository`는 `typing.Protocol`이다. Domain이 infrastructure를 import하지 않는다.
+- 메서드는 `add_*`, `get_*`, `list_*`만 있다. ID 타입은 `str`이다.
+- `InMemoryCatalogRepository`는 프로세스 메모리의 dictionary에 객체를 저장한다. 내부 자료구조는 외부에 노출하지 않는다.
+- Contract Test는 구현체를 생성 함수로 주입받는다. 현재는 인메모리 구현만 연결한다.
+
+### Responsibility
+
+- Domain은 객체 자신의 필드 형식만 검사한다. 부모 존재와 slug 중복은 검사하지 않는다.
+- Repository는 저장 제약을 검사한다. ID 중복, 부모 범위의 slug 중복, `Service.provider_id`와 `Plan.service_id`가 가리키는 엔티티의 존재다.
+- 조회는 예외를 던지지 않는다. `get_*`는 없으면 `None`, `list_*`는 없으면 `()`다.
+- 저장 검사는 모두 통과한 뒤에만 상태를 바꾼다. 실패하면 기존 데이터는 그대로다.
+
+### Decisions
+
+- Provider, Service, Plan Repository를 나누지 않고 `CatalogRepository` 하나로 둔다. Service는 Provider가, Plan은 Service가 있어야 저장되므로 카탈로그가 하나의 일관성 경계다. 저장소를 나누면 관계 검사가 여러 객체에 흩어진다.
+- Protocol을 쓴다. Domain은 저장 기술에 의존하지 않고, 구현과 테스트가 같은 메서드 집합을 따른다.
+- 인메모리를 먼저 둔다. 이번 Task의 목적은 계약과 저장 규칙이지 데이터베이스 연결이 아니다.
+- `list_*`는 `tuple`을 반환한다. 내부 dictionary의 실시간 뷰가 아니고, 빈 결과도 `None`이 아닌 `()`다.
+- 목록은 `id` 오름차순이다. 삽입 순서나 dictionary 순서에 기대지 않으며, 이후 PostgreSQL의 정렬과 같은 결과를 맞추기 위해서다.
+- `update`, `delete`, `upsert`는 넣지 않는다. 조회와 추가만 필요한 시점이고, 변경 연산은 별도 Task에서 설계한다.
+- PostgreSQL과 Supabase는 연결하지 않는다. 실제 스키마와 드라이버를 지금 고정하지 않기 위해서다.
+- Contract Test의 동일성 비교는 값 비교다. 이후 데이터베이스 구현이 객체를 다시 만들어도 같은 테스트를 통과할 수 있다.
+- pytest `pythonpath`에 backend 루트를 추가했다. 공통 Contract Test 모듈을 `tests.persistence`로 import하기 위해서다.
+
+### Future
+
+- PostgreSQL 또는 Supabase 구현을 추가할 때 같은 Contract Test를 재사용한다.
+- 데이터베이스에서는 primary key, foreign key, unique 제약이 ID 중복, 부모 참조, slug 범위를 담당한다.
+- 그 구현도 `CatalogRepository` Protocol을 따른다.
+
+### Tests
+
+- `uv run pytest` — 96 passed.
+  - FREE-001부터 FREE-003까지의 기존 테스트 72개 통과.
+  - Catalog contract 테스트 24개 통과. 인메모리 구현에 연결했다.
+
+
 

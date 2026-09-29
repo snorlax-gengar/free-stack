@@ -1,8 +1,10 @@
 from typing import Protocol
 
+from freestack.domain.limit import Limit
 from freestack.domain.plan import Plan
 from freestack.domain.provider import Provider
 from freestack.domain.service import Service
+from freestack.domain.source import Source
 
 
 class CatalogRepository(Protocol):
@@ -42,4 +44,24 @@ class CatalogRepository(Protocol):
 
     def list_plans(self, service_id: str) -> tuple[Plan, ...]:
         """Return a service's plans sorted by id."""
+        ...
+
+    def add_source(self, source: Source) -> None:
+        """Store a source."""
+        ...
+
+    def get_source(self, source_id: str) -> Source | None:
+        """Return a source, or None when it is not stored."""
+        ...
+
+    def list_sources(self) -> tuple[Source, ...]:
+        """Return stored sources sorted by id."""
+        ...
+
+    def add_limit(self, limit: Limit) -> None:
+        """Store a limit."""
+        ...
+
+    def list_limits(self, plan_id: str) -> tuple[Limit, ...]:
+        """Return a plan's limits sorted by metric, then period."""
         ...

@@ -5,10 +5,12 @@ from freestack.domain.errors import (
     DuplicateSlugError,
     RelatedEntityNotFoundError,
 )
+from freestack.domain.limit import Limit, LimitMetric, LimitPeriod
 from freestack.domain.plan import Plan
 from freestack.domain.provider import Provider
 from freestack.domain.repositories import CatalogRepository
 from freestack.domain.service import Service
+from freestack.domain.source import Source
 
 
 class InMemoryCatalogRepository(CatalogRepository):
@@ -18,6 +20,8 @@ class InMemoryCatalogRepository(CatalogRepository):
         self._providers: dict[str, Provider] = {}
         self._services: dict[str, Service] = {}
         self._plans: dict[str, Plan] = {}
+        self._sources: dict[str, Source] = {}
+        self._limits: dict[tuple[str, LimitMetric, LimitPeriod], Limit] = {}
 
     def add_provider(self, provider: Provider) -> None:
         if provider.id in self._providers:
@@ -84,8 +88,42 @@ class InMemoryCatalogRepository(CatalogRepository):
         }
         return _sorted_by_id(matched)
 
+    def add_source(self, source: Source) -> None:
+        if source.id in self._sources:
+            raise DuplicateEntityError(f"source id already exists: {source.id}")
+        if any(stored.url == source.url for stored in self._sources.values()):
+            raise DuplicateEntityError(f"source url already exists: {source.url}")
+        self._sources[source.id] = source
 
-EntityT = TypeVar("EntityT", Provider, Service, Plan)
+    def get_source(self, source_id: str) -> Source | None:
+        return self._sources.get(source_id)
+
+    def list_sources(self) -> tuple[Source, ...]:
+        return _sorted_by_id(self._sources)
+
+    def add_limit(self, limit: Limit) -> None:
+        if limit.plan_id not in self._plans:
+            raise RelatedEntityNotFoundError(f"plan not found: {limit.plan_id}")
+        if limit.source_id not in self._sources:
+            raise RelatedEntityNotFoundError(f"source not found: {limit.source_id}")
+        key = (limit.plan_id, limit.metric, limit.period)
+        if key in self._limits:
+            raise DuplicateEntityError(
+                "limit already exists: "
+                f"{limit.plan_id} {limit.metric.value} {limit.period.value}"
+            )
+        self._limits[key] = limit
+
+    def list_limits(self, plan_id: str) -> tuple[Limit, ...]:
+        matched = [
+            limit for limit in self._limits.values() if limit.plan_id == plan_id
+        ]
+        return tuple(
+            sorted(matched, key=lambda limit: (limit.metric.value, limit.period.value))
+        )
+
+
+EntityT = TypeVar("EntityT", Provider, Service, Plan, Source)
 
 
 def _sorted_by_id(entities: dict[str, EntityT]) -> tuple[EntityT, ...]:

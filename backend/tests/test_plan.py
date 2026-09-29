@@ -1,7 +1,9 @@
 from dataclasses import FrozenInstanceError
+from enum import StrEnum
 
 import pytest
 
+from freestack.domain.capability import CapabilityKey
 from freestack.domain.plan import Plan
 from freestack.domain.provider import Provider
 from freestack.domain.service import Service
@@ -13,6 +15,10 @@ INVALID_IDENTIFIERS = [
     "cloudflare pages",
     "Cloud-Flare",
 ]
+
+
+class _OtherKey(StrEnum):
+    DATABASE = "database"
 
 
 def _free_plan() -> Plan:
@@ -133,3 +139,45 @@ def test_cloudflare_pages_free_relates_by_id() -> None:
     assert plan.service_id == service.id
     assert not hasattr(provider, "services")
     assert not hasattr(service, "plans")
+
+
+def test_plan_capabilities_default_to_empty_frozenset() -> None:
+    plan = _free_plan()
+
+    assert plan.capabilities == frozenset()
+
+
+def test_plan_accepts_capability_keys() -> None:
+    capabilities = frozenset({CapabilityKey.DATABASE, CapabilityKey.FILE_STORAGE})
+    plan = Plan(
+        id="cloudflare-pages-free",
+        service_id="cloudflare-pages",
+        name="Free",
+        slug="free",
+        description="",
+        capabilities=capabilities,
+    )
+
+    assert plan.capabilities == capabilities
+
+
+@pytest.mark.parametrize(
+    "capabilities",
+    [
+        {"database"},
+        ["database"],
+        {CapabilityKey.DATABASE},
+        frozenset({"database"}),
+        frozenset({_OtherKey.DATABASE}),
+    ],
+)
+def test_plan_rejects_invalid_capabilities(capabilities: object) -> None:
+    with pytest.raises(ValueError, match=r"invalid capabilities:"):
+        Plan(
+            id="cloudflare-pages-free",
+            service_id="cloudflare-pages",
+            name="Free",
+            slug="free",
+            description="",
+            capabilities=capabilities,  # type: ignore[arg-type]
+        )

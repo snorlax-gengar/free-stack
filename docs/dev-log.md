@@ -196,5 +196,46 @@ Provider, Service, Plan을 저장하고 ID로 조회하는 Repository Layer를 �
   - FREE-001부터 FREE-003까지의 기존 테스트 72개 통과.
   - Catalog contract 테스트 24개 통과. 인메모리 구현에 연결했다.
 
+## FREE-005 — Capability / Limit / Source Domain
+
+### Goal
+
+Recommendation Engine이 나중에 쓸 카탈로그 메타데이터를 Domain과 Repository에 추가한다. Capability, Limit, Source를 표현하고 저장·조회한다. 추천 계산, 실제 Provider 데이터, PostgreSQL은 만들지 않는다.
+
+### Design
+
+- Capability는 저장 엔티티가 아니다. `CapabilityKey`는 `StrEnum` 고정 어휘이고, Plan의 `capabilities: frozenset[CapabilityKey]`로만 붙는다.
+- Limit은 Plan에 속한다. 별도 id는 없고 자연 키는 `(plan_id, metric, period)`다.
+- metric 이름에 기준 단위를 포함한다. `value`는 그 단위의 정수다.
+- `value is None`은 명시적 무제한이다. Limit 행이 없으면 모름이다. `0`은 그 사용량을 제공하지 않음이다.
+- Source는 독립 엔티티다. Limit이 `source_id`로 Source를 참조하고, 여러 Limit이 하나의 Source를 공유할 수 있다.
+- Capability와 Limit은 직접 연결하지 않는다. 추천 엔진이 capability 필터와 limit 제약을 따로 조합한다.
+
+### Repository
+
+- `CatalogRepository`에 Source의 add/get/list와 Limit의 add/list를 추가했다. `get_limit()`은 두지 않았다.
+- Limit 저장 시 Plan과 Source가 있는지 확인하고, 자연 키가 중복되면 `DuplicateEntityError`를 낸다.
+- Source URL은 문자열 그대로 비교한다. 같은 URL은 `DuplicateEntityError`다. 정규화하지 않는다.
+- 저장 검사가 실패하면 Repository 상태는 바뀌지 않는다.
+- Contract Test에 Source와 Limit 계약, 그리고 테스트용 Cloudflare Pages/R2 메타데이터 예시를 추가했다. 예시 수치는 실제 무료 한도가 아니다.
+
+### Deferred
+
+- `effective_from`, versioning, rate limit, `on_exceed`, scope
+- 실제 Provider 데이터와 Seed Loader
+- Recommendation Engine
+- `units.py`. GB/MB 변환은 실제 시드 데이터가 필요한 시점에 검토한다.
+
+### Why
+
+이후 Recommendation Engine은 Capability로 후보 Plan을 거르고, Limit으로 자원 한도를 거르며, Source로 근거와 조사 시점을 설명한다.
+
+### Tests
+
+- `uv run pytest` — 159 passed.
+  - 기존 96개 테스트 통과.
+  - FREE-005에서 Plan capability, Limit, Source, Catalog contract 테스트를 추가했다.
+
+
 
 

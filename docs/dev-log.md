@@ -83,3 +83,73 @@ FreeStack의 Frontend와 Backend가 로컬에서 실행되고, Frontend가 Backe
 - 테스트의 Cloudflare 예시는 모델이 문자열을 받는다는 것을 보여주는 값이다. Provider 시드 데이터가 아니다.
 - API, Repository, CRUD, Frontend, Recommendation은 구현하지 않았다.
 
+## FREE-003 — Service / Plan Domain
+
+### Goal
+
+카탈로그의 다음 단위인 Service와 Plan을 도메인 모델로 추가하고, Provider를 같은 규칙으로 맞춘다. 저장, API, 시드 데이터는 만들지 않는다.
+
+### Design
+
+관계는 객체를 중첩하지 않고 ID로만 표현한다.
+
+```text
+Provider
+    │ provider_id
+    ▼
+Service
+    │ service_id
+    ▼
+Plan
+```
+
+- `id`: 전역 식별자. 생성 후 바꾸지 않는다. 문자열을 파싱해 관계를 추론하지 않는다.
+- `slug`: 사람이 읽고 URL에 쓸 식별자. Provider slug는 전역, Service slug는 같은 Provider 안, Plan slug는 같은 Service 안에서 고유하다는 의미만 가진다. 모델은 그 중복을 검사하지 않는다.
+- `name`: 표시용 이름.
+- `description`: 설명. 빈 문자열을 허용한다.
+
+Service는 Plan이 독립적으로 붙는 제품 단위다. Plan은 한 Service의 이용 조건 묶음이다.
+
+세 모델 모두 `frozen=True, slots=True, kw_only=True` dataclass다.
+
+### Decisions
+
+- FREE-002는 검증을 일부러 넣지 않았다. 이번 설계 리뷰에서 ID, slug, name의 최소 형식 검사가 도메인 자신의 책임으로 정해져 그 범위만 추가했다.
+- 같은 정규식과 name 검사를 `domain/validation.py`에 둔다. Provider, Service, Plan이 규칙을 각각 복사하지 않게 하기 위해서다. Pydantic이나 외부 검증 라이브러리는 쓰지 않는다.
+- `NewType`은 만들지 않는다. 타입 체커를 실행하지 않으므로 `kw_only=True`로 인자 순서를 막는다.
+- 가격, 무료 여부, capability, limit은 넣지 않는다. 실제 Provider 조건을 조사하기 전에 필드를 고정하면 잘못된 모델이 된다.
+- name은 앞뒤 공백을 제거해 비었는지만 본다. 내용이 있으면 입력 문자열을 그대로 저장한다. 값을 조용히 고치지 않기 위해서다.
+- 검토한 다른 방식은 Provider.services, Service.plans처럼 객체를 중첩하는 것이다. 중첩은 카탈로그 조회와 수명 주기를 도메인 객체에 끌어들인다. ID 참조가 이번 범위에 맞다.
+
+### Validation
+
+공통 식별자 규칙 `^[a-z0-9]+(?:-[a-z0-9]+)*$`를 `id`, `slug`, `provider_id`, `service_id`에 적용한다. name은 공백을 뺀 뒤 빈 문자열이면 `ValueError`다. 오류 메시지에는 필드 이름이 들어간다.
+
+모델이 검사하지 않는 것:
+
+- Provider, Service가 실제로 존재하는지
+- slug가 부모 범위에서 중복되는지
+- id가 저장소 기준으로 전역 유일한지
+
+이 검사는 이후 Repository 또는 Catalog 계층의 책임이다.
+
+### Relationship
+
+`Service.provider_id`가 Provider를 가리키고, `Plan.service_id`가 Service를 가리킨다. `id`를 `split`하거나 `f"{provider_id}-{slug}"`로 관계를 만들지 않는다. 읽을 수 있는 id 문자열은 허용하지만, 그 형식을 규칙으로 쓰지 않는다.
+
+### Tests
+
+- `uv run pytest` — 72 passed.
+  - FREE-001 health 테스트 4개 통과.
+  - Provider: 생성, 필드, 빈 description, 불변성, slots, keyword-only, equality/hash, 잘못된 id/slug, 빈 name.
+  - Service: 같은 기본 검증과 잘못된 `provider_id`.
+  - Plan: 같은 기본 검증과 잘못된 `service_id`.
+  - Cloudflare / Pages / Free 객체가 `provider_id`, `service_id`로만 연결되는지 확인. 시드 데이터가 아니다.
+
+### Future Considerations
+
+- 번들형 Provider처럼 한 상품이 여러 Service에 걸치면 현재의 Service 하나 대 Plan 하나 관계를 다시 검토한다.
+- 가격과 무료 여부는 실제 제공 조건을 조사한 뒤 별도 Task에서 설계한다.
+- 타입 체커를 도입하면 `NewType`으로 id를 나눌지 그때 검토한다.
+
+

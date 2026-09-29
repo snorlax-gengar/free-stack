@@ -4,15 +4,17 @@ from freestack.domain.validation import require_identifier, require_name
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Provider:
-    """An infrastructure provider or platform."""
+class Service:
+    """A product unit that has its own plans."""
 
     id: str
+    provider_id: str
     name: str
     slug: str
     description: str
 
     def __post_init__(self) -> None:
         require_identifier(self.id, "id")
+        require_identifier(self.provider_id, "provider_id")
         require_identifier(self.slug, "slug")
         require_name(self.name)

@@ -303,7 +303,7 @@ def test_seed_catalog_maps_stopped_composition_statuses() -> None:
     assert no_roles.unevaluated_features == [Feature.AI_API]
 
 
-def test_api_package_does_not_call_infrastructure_or_rerun_composition() -> None:
+def test_schema_and_mapper_modules_do_not_call_infrastructure_or_rerun_composition() -> None:
     api_root = Path(mappers.__file__).parent
     forbidden = (
         "fastapi",
@@ -313,7 +313,7 @@ def test_api_package_does_not_call_infrastructure_or_rerun_composition() -> None
         "freestack.domain.composition.budget",
     )
     calls = {"compose", "recommend", "evaluate", "apply_stack_budget", "collect_plan_pricing"}
-    for path in api_root.glob("*.py"):
+    for path in (api_root / "schemas.py", api_root / "mappers.py"):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         imported: list[str] = []

@@ -870,6 +870,67 @@ FREE-009 PR3 Router, Dependency, Exception Handler.
 - `uv run pytest` — 484 passed.
   - 기존 460개 테스트 통과. API Schema/Mapper 테스트 24개 추가.
 
+## FREE-009 PR3 — Recommendation API
+
+### Goal
+
+PR2 Schema와 Mapper를 FastAPI endpoint에 연결한다. Domain, Application, Infrastructure, Response Schema, Mapper는 바꾸지 않는다.
+
+```text
+HTTP Request
+  → RecommendationRequest
+  → to_requirement()
+  → StackCompositionService.compose_stacks()
+  → to_response()
+  → RecommendationResponse
+```
+
+### Endpoint
+
+`POST /api/v1/recommendations`
+
+`create_app()`가 router를 `/api/v1` 아래에 등록한다. `GET /health`는 기존 그대로다.
+
+### Dependency
+
+`get_stack_composition_service()`만 Catalog를 조립한다.
+
+```text
+InMemoryCatalogRepository
+  → load_catalog(ALL_BUNDLES)
+  → RecommendationService(catalog, SeedCaveatCatalog)
+  → StackCompositionService(recommendations, max_combinations=10)
+```
+
+`max_combinations`는 요청 필드가 아니다. 코드에 기존 설정값이 없어서 Dependency의 `DEFAULT_MAX_COMBINATIONS = 10`을 쓴다. 10은 seed 조합을 막지 않는 기존 테스트 값이다. Router는 Repository와 `RecommendationService`를 만들지 않는다.
+
+### Exception mapping
+
+응답은 `{"error": {"code", "message"}}`만 사용한다. `details`는 없다.
+
+| 상황 | HTTP | code |
+|---|---|---|
+| Pydantic request validation | 422 | `REQUEST_VALIDATION_FAILED` |
+| `to_requirement()`의 `ValueError` | 422 | `INVALID_REQUIREMENT` |
+| `compose_stacks()`의 `ValueError` | 500 | `INTERNAL_ERROR` |
+| `RepositoryError` 계열 | 500 | `INTERNAL_ERROR` |
+
+`INVALID_REQUIREMENT`의 message는 `str(exc)`다. 500 message는 `An internal error occurred.`다. traceback과 exception repr은 응답에 넣지 않는다.
+
+`ValueError`는 한 곳에서 한꺼번에 잡지 않는다. `to_requirement()`와 `compose_stacks()`의 경계가 다르다. Catalog 예외는 `RelatedEntityNotFoundError`, `DuplicateEntityError`, `DuplicateSlugError`의 부모인 `RepositoryError`다. `CatalogIntegrityError`는 만들지 않았다.
+
+`composed`, `blocked`, `no-roles`, `too-many-combinations`는 HTTP 200이다.
+
+### Architecture
+
+Schema와 Mapper는 FastAPI와 Infrastructure를 import하지 않는다. Infrastructure import는 `dependencies.py`에만 있다. 이 경계에 맞추려고 mapper 테스트의 검사 대상을 `schemas.py`와 `mappers.py`로 좁혔다.
+
+### Verification
+
+- `uv run pytest` — 496 passed.
+  - 기존 484개 테스트 통과. API HTTP 테스트 12개 추가.
+- `git diff --check` 통과.
+
 
 
 

@@ -4,6 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from freestack.api.errors import register_exception_handlers
+from freestack.api.routes import router as recommendations_router
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -27,6 +30,8 @@ def create_app() -> FastAPI:
     def health() -> HealthResponse:
         return HealthResponse(status="ok")
 
+    register_exception_handlers(app)
+    app.include_router(recommendations_router, prefix="/api/v1")
     return app
 
 

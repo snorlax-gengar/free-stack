@@ -803,6 +803,73 @@ FREE-009 Frontend.
 - `uv run pytest` — 460 passed.
   - 기존 435개 테스트 통과.
 
+## FREE-009 PR2 — API Schema와 Mapper
+
+### Goal
+
+FREE-009 PR1 Contract를 PR1.5에서 확인한 Domain/Application 모델에 맞춰 Schema와 Mapper로 구현한다. HTTP Router, Dependency, Exception Handler는 만들지 않는다.
+
+```text
+HTTP JSON → Request Schema → to_requirement() → ProjectRequirement
+StackCompositionResult → to_response(result) → Response Schema → HTTP JSON
+```
+
+### API 패키지
+
+```text
+backend/src/freestack/api/
+├── __init__.py
+├── schemas.py
+└── mappers.py
+```
+
+`dependencies.py`, `errors.py`, `routes/`는 이번 PR에 없다.
+
+### Request
+
+`RecommendationRequest`는 `extra="forbid"`다. `features`는 Domain `Feature` enum이다. 알 수 없는 값과 중복은 Schema에서 거절한다. `ProjectRequirement`가 `frozenset`이라 중복이 Domain에 들어가면 사라지기 때문이다.
+
+수량과 예산은 strict int다. bool, float, 숫자 문자열은 거절한다. `None`은 허용한다. 양수, 0, feature와의 교차 조건은 Schema에 다시 두지 않는다. 빈 feature 목록과 음수 수량은 Schema를 통과하고 `ProjectRequirement`에서 실패한다.
+
+`to_requirement(dto)`는 필드를 복사만 한다.
+
+### Response
+
+`to_response(result)`만 있다. requirement는 `result.requirement`에서 읽는다.
+
+`features`와 `unevaluated_features`는 `frozenset`이라 요청 순서가 없다. 응답 목록은 `Feature` 선언 순서다. 이 순서는 Evaluation role 순서와 같고, 입력 순서가 아니다.
+
+`plans`는 `detail.plan.id`를 key로 하는 map이다. 값은 `plan`, `service`, `provider`, `pricing`, `caveats`, `sources`다. 같은 Plan은 한 번만 넣는다. Caveat에는 id가 없고 `plan_id`, `statement`, `source_id`만 있다. Source는 `id`, `url`, `checked_at`, `notes`다. 같은 Source가 여러 Plan에 있으면 최상위 `sources` map에는 id당 하나만 둔다. Plan 안의 목록은 그 Plan의 tuple 순서를 유지한다.
+
+Evaluation은 `capability_check`, `quantity_checks`, `global_quantity_checks`, `budget_check`를 그대로 둔다. `kind`와 `required`는 없다. Limit는 세 상태를 구분한다.
+
+- `limit`가 `None`이면 limit 행이 없다.
+- `limit.value`가 `None`이면 unlimited다.
+- `limit.value`가 `0`이면 제공 한도가 0이다.
+
+사용자 요구량은 requirement에만 있다.
+
+Stack budget은 `StackBudgetCheck`의 `budget_usd_cents`, `priced_plan_ids`, `unpriced_plan_ids`, `known_total_usd_cents`, `reason`, `outcome`이다. `budget_check`가 `None`이면 응답도 `null`이다. `pricing-not-found`는 Domain reason을 복사한다. Mapper는 가격을 다시 합산하지 않는다.
+
+Composition status는 `composed`, `blocked`, `too-many-combinations`, `no-roles`다. `all-incompatible`과 `no-candidates`는 `blocked_roles`의 `BlockReason`이다.
+
+Stack에는 id가 없다. key는 assignment 순서의 `feature=plan_id`를 `;`로 잇는다. Frontend가 이 문자열을 해석하지 않는다. `assignments`는 feature 값 오름차순이고, `plan_ids`는 정렬된 고유 id다. Mapper는 둘을 다시 정렬하지 않는다. Evaluation role 순서도 결과 tuple 그대로다.
+
+### Out of scope
+
+- Router, FastAPI endpoint, Dependency, Exception Handler
+- Domain, Application, Infrastructure, `StackCompositionService` 수정
+- CORS, Frontend
+
+### Next step
+
+FREE-009 PR3 Router, Dependency, Exception Handler.
+
+### Verification
+
+- `uv run pytest` — 484 passed.
+  - 기존 460개 테스트 통과. API Schema/Mapper 테스트 24개 추가.
+
 
 
 

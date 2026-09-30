@@ -724,6 +724,85 @@ Pricing Seed와 Application에서 `collect_plan_pricing` / `apply_stack_budget`�
 - `uv run pytest` — 435 passed.
   - 기존 417개 테스트 통과.
 
+## FREE-008 PR4 — Stack Composition Application
+
+### Goal
+
+FREE-007 Recommendation과 FREE-008 Composition을 Application에서 조율한다. 판단 로직을 새로 만들지 않는다.
+
+> FREE-008 PR4는 Composition Domain의 판단 로직을 추가하는 작업이 아니라, FREE-007 Recommendation과 FREE-008 Composition을 Application 계층에서 조율하는 작업이다.
+
+### Application 책임
+
+`StackCompositionService.compose_stacks()`는 다음 순서만 실행한다.
+
+```text
+ProjectRequirement
+    → RecommendationService.recommend()
+    → compose()
+    → 예산이 있으면 collect_plan_pricing() + apply_stack_budget()
+    → StackCompositionResult
+```
+
+### RecommendationService 재사용 이유
+
+Catalog 조회, Evaluation, PlanDetail, Caveat, Source, Pricing 조립은 이미 `RecommendationService`에 있다. `StackCompositionService`는 Repository를 받지 않고 그 서비스를 주입받는다.
+
+### StackCompositionService 명명 이유
+
+이 서비스는 최적 Stack이나 순위를 고르지 않는다. 가능한 Stack 조합을 구성한다. 이름에 Recommendation을 쓰지 않는다.
+
+### max_combinations
+
+생성자 인자이며 기본값이 없다. 1 이상의 int만 허용한다. 사용자 입력이 아니라 Application 정책이다. 잘못된 설정은 `compose()` 전에 거절한다.
+
+### Composition 실행 흐름
+
+Composer와 Budget의 상태 분기를 Application에서 다시 하지 않는다. `no-roles`, `blocked`, `too-many-combinations`도 예산이 있으면 Budget 단계에 그대로 넘긴다.
+
+### 예산 입력
+
+예산은 `ProjectRequirement.monthly_budget_usd_cents`에서만 읽는다. `RecommendationResult`에는 requirement가 없다. `None`이면 `collect_plan_pricing()`과 `apply_stack_budget()`을 호출하지 않는다.
+
+### Stack ↔ PlanDetail
+
+Plan 상세는 `RecommendationResult.plans`에만 둔다. Stack은 plan id만 가진다. `plan_detail()`과 `stack_plan_details()`가 그 목록을 조회한다. 같은 Plan은 같은 `PlanDetail`이다. `stack.plan_ids`는 중복이 없으므로 여러 Role에 배정된 Plan도 한 번만 반환한다.
+
+### Repository
+
+Stack 상세를 위해 Repository를 다시 조회하지 않는다.
+
+### 예외
+
+새 예외를 만들지 않고, 발생한 예외를 다른 타입으로 바꾸지 않는다. Stack이 Recommendation에 없는 Plan을 가리키면 `ValueError`다. 없는 plan id 조회는 `KeyError`다.
+
+### Result invariant
+
+- Stack의 plan id는 Recommendation의 PlanDetail에 있어야 한다.
+- `unevaluated_features`는 Evaluation과 Composition이 같다.
+- 예산이 없으면 composed Stack의 `budget_check`는 `None`이다.
+- 예산이 있고 `budget_check`가 있으면 그 금액은 requirement와 같다.
+
+### Frontend / API
+
+결과 객체에 requirement, recommendation, composition을 함께 둔다. 이후 화면은 Stack의 plan id로 이미 조립된 PlanDetail을 조회하면 된다. API와 화면은 이번 작업에 없다.
+
+### Out of scope
+
+- FastAPI, Pydantic DTO, Frontend
+- DB, Pricing Seed
+- LLM, ranking, winner
+- Repository, LimitMetric
+
+### Next step
+
+FREE-009 Frontend.
+
+### Verification
+
+- `uv run pytest` — 460 passed.
+  - 기존 435개 테스트 통과.
+
 
 
 

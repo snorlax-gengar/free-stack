@@ -9,6 +9,7 @@ from freestack.domain.errors import (
 )
 from freestack.domain.limit import Limit, LimitMetric, LimitPeriod
 from freestack.domain.plan import Plan
+from freestack.domain.pricing import ExceedBehavior, PlanPricing
 from freestack.domain.provider import Provider
 from freestack.domain.repositories import CatalogRepository
 from freestack.domain.service import Service
@@ -266,6 +267,47 @@ class CatalogRepositoryContract:
             "m-plan",
             "z-plan",
         )
+
+    def test_list_all_plans_empty_returns_empty_tuple(self) -> None:
+        repository = self.make_repository()
+
+        assert repository.list_all_plans() == ()
+
+    def test_list_all_plans_returns_plans_from_every_service(self) -> None:
+        repository = self.make_repository()
+        _add_pages(repository)
+        repository.add_service(_service("cloudflare-r2", "cloudflare", name="R2", slug="r2"))
+        pages_free = _plan(
+            "cloudflare-pages-free",
+            "cloudflare-pages",
+            name="Free",
+            slug="free",
+        )
+        r2_free = _plan("cloudflare-r2-free", "cloudflare-r2", name="Free", slug="free")
+        repository.add_plan(pages_free)
+        repository.add_plan(r2_free)
+
+        listed = repository.list_all_plans()
+
+        assert isinstance(listed, tuple)
+        assert listed == (pages_free, r2_free)
+
+    def test_list_all_plans_is_sorted_by_id_independent_of_insertion_order(self) -> None:
+        repository = self.make_repository()
+        _add_pages(repository)
+        repository.add_service(_service("cloudflare-r2", "cloudflare", name="R2", slug="r2"))
+        repository.add_plan(
+            _plan("z-plan", "cloudflare-pages", name="Plan", slug="z-plan")
+        )
+        repository.add_plan(_plan("a-plan", "cloudflare-r2", name="Plan", slug="a-plan"))
+        repository.add_plan(
+            _plan("m-plan", "cloudflare-pages", name="Plan", slug="m-plan")
+        )
+
+        listed = repository.list_all_plans()
+
+        assert isinstance(listed, tuple)
+        assert tuple(plan.id for plan in listed) == ("a-plan", "m-plan", "z-plan")
 
     def test_cloudflare_pages_and_r2_free_plans(self) -> None:
         repository = self.make_repository()
@@ -642,6 +684,102 @@ class CatalogRepositoryContract:
         assert repository.list_limits("cloudflare-r2-free") == (storage,)
         assert repository.list_sources() == (pages_source, r2_source)
 
+    def test_add_plan_pricing_missing_plan_raises_and_keeps_state(self) -> None:
+        repository = self.make_repository()
+        source = _source("cloudflare-pages-pricing")
+        repository.add_source(source)
+
+        with pytest.raises(RelatedEntityNotFoundError, match="plan not found"):
+            repository.add_plan_pricing(_pricing("missing-plan"))
+
+        assert repository.get_plan_pricing("missing-plan") is None
+        assert repository.list_sources() == (source,)
+        assert repository.list_all_plans() == ()
+
+    def test_add_plan_pricing_checks_plan_before_source(self) -> None:
+        repository = self.make_repository()
+
+        with pytest.raises(RelatedEntityNotFoundError, match="plan not found"):
+            repository.add_plan_pricing(
+                _pricing("missing-plan", source_id="missing-source")
+            )
+
+        assert repository.get_plan_pricing("missing-plan") is None
+
+    def test_add_plan_pricing_missing_source_raises_and_keeps_state(self) -> None:
+        repository = self.make_repository()
+        _add_pages(repository)
+        plan = _plan("cloudflare-pages-free", "cloudflare-pages", name="Free", slug="free")
+        repository.add_plan(plan)
+
+        with pytest.raises(RelatedEntityNotFoundError, match="source not found"):
+            repository.add_plan_pricing(_pricing(source_id="missing-source"))
+
+        assert repository.get_plan("cloudflare-pages-free") == plan
+        assert repository.get_plan_pricing("cloudflare-pages-free") is None
+        assert repository.list_sources() == ()
+
+    def test_duplicate_plan_pricing_raises_and_keeps_state(self) -> None:
+        repository = self.make_repository()
+        _add_priced_plan(repository)
+        original = _pricing(
+            monthly_base_fee_usd_cents=0,
+            exceed_behaviors=frozenset({ExceedBehavior.SUSPENDED}),
+        )
+        repository.add_plan_pricing(original)
+
+        with pytest.raises(DuplicateEntityError):
+            repository.add_plan_pricing(
+                _pricing(
+                    monthly_base_fee_usd_cents=500,
+                    exceed_behaviors=frozenset({ExceedBehavior.CHARGED}),
+                )
+            )
+
+        assert repository.get_plan_pricing("cloudflare-pages-free") == original
+
+    def test_get_plan_pricing_returns_saved_pricing(self) -> None:
+        repository = self.make_repository()
+        _add_priced_plan(repository)
+        behaviors = frozenset({ExceedBehavior.CHARGED, ExceedBehavior.RESTRICTED})
+        pricing = _pricing(
+            monthly_base_fee_usd_cents=2500,
+            exceed_behaviors=behaviors,
+        )
+
+        repository.add_plan_pricing(pricing)
+
+        stored = repository.get_plan_pricing("cloudflare-pages-free")
+        assert stored == pricing
+        assert stored is not None
+        assert stored.exceed_behaviors == behaviors
+        assert stored.monthly_base_fee_usd_cents == 2500
+
+    def test_get_missing_plan_pricing_returns_none(self) -> None:
+        repository = self.make_repository()
+
+        assert repository.get_plan_pricing("missing-plan") is None
+
+    def test_each_plan_can_store_one_pricing(self) -> None:
+        repository = self.make_repository()
+        _add_priced_plan(repository)
+        repository.add_service(_service("cloudflare-r2", "cloudflare", name="R2", slug="r2"))
+        repository.add_plan(_plan("cloudflare-r2-free", "cloudflare-r2", name="Free", slug="free"))
+        repository.add_source(_source("cloudflare-r2-pricing", url="https://example.com/r2"))
+        pages_pricing = _pricing(monthly_base_fee_usd_cents=0)
+        r2_pricing = _pricing(
+            "cloudflare-r2-free",
+            monthly_base_fee_usd_cents=100,
+            source_id="cloudflare-r2-pricing",
+            exceed_behaviors=frozenset({ExceedBehavior.CHARGED}),
+        )
+
+        repository.add_plan_pricing(pages_pricing)
+        repository.add_plan_pricing(r2_pricing)
+
+        assert repository.get_plan_pricing("cloudflare-pages-free") == pages_pricing
+        assert repository.get_plan_pricing("cloudflare-r2-free") == r2_pricing
+
 
 def _provider(
     provider_id: str,
@@ -729,6 +867,23 @@ def _add_pages(repository: CatalogRepository) -> None:
     repository.add_provider(_provider("cloudflare", name="Cloudflare"))
     repository.add_service(
         _service("cloudflare-pages", "cloudflare", name="Pages", slug="pages")
+    )
+
+
+def _pricing(
+    plan_id: str = "cloudflare-pages-free",
+    *,
+    monthly_base_fee_usd_cents: int = 0,
+    exceed_behaviors: frozenset[ExceedBehavior] | None = None,
+    source_id: str = "cloudflare-pages-pricing",
+) -> PlanPricing:
+    if exceed_behaviors is None:
+        exceed_behaviors = frozenset({ExceedBehavior.CHARGED})
+    return PlanPricing(
+        plan_id=plan_id,
+        monthly_base_fee_usd_cents=monthly_base_fee_usd_cents,
+        exceed_behaviors=exceed_behaviors,
+        source_id=source_id,
     )
 
 

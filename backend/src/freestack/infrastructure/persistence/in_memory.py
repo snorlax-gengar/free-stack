@@ -7,6 +7,7 @@ from freestack.domain.errors import (
 )
 from freestack.domain.limit import Limit, LimitMetric, LimitPeriod
 from freestack.domain.plan import Plan
+from freestack.domain.pricing import PlanPricing
 from freestack.domain.provider import Provider
 from freestack.domain.repositories import CatalogRepository
 from freestack.domain.service import Service
@@ -22,6 +23,7 @@ class InMemoryCatalogRepository(CatalogRepository):
         self._plans: dict[str, Plan] = {}
         self._sources: dict[str, Source] = {}
         self._limits: dict[tuple[str, LimitMetric, LimitPeriod], Limit] = {}
+        self._pricings: dict[str, PlanPricing] = {}
 
     def add_provider(self, provider: Provider) -> None:
         if provider.id in self._providers:
@@ -88,6 +90,9 @@ class InMemoryCatalogRepository(CatalogRepository):
         }
         return _sorted_by_id(matched)
 
+    def list_all_plans(self) -> tuple[Plan, ...]:
+        return _sorted_by_id(self._plans)
+
     def add_source(self, source: Source) -> None:
         if source.id in self._sources:
             raise DuplicateEntityError(f"source id already exists: {source.id}")
@@ -121,6 +126,20 @@ class InMemoryCatalogRepository(CatalogRepository):
         return tuple(
             sorted(matched, key=lambda limit: (limit.metric.value, limit.period.value))
         )
+
+    def add_plan_pricing(self, pricing: PlanPricing) -> None:
+        if pricing.plan_id not in self._plans:
+            raise RelatedEntityNotFoundError(f"plan not found: {pricing.plan_id}")
+        if pricing.source_id not in self._sources:
+            raise RelatedEntityNotFoundError(f"source not found: {pricing.source_id}")
+        if pricing.plan_id in self._pricings:
+            raise DuplicateEntityError(
+                f"plan pricing already exists: {pricing.plan_id}"
+            )
+        self._pricings[pricing.plan_id] = pricing
+
+    def get_plan_pricing(self, plan_id: str) -> PlanPricing | None:
+        return self._pricings.get(plan_id)
 
 
 EntityT = TypeVar("EntityT", Provider, Service, Plan, Source)

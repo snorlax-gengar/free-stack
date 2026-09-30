@@ -1,7 +1,9 @@
 from typing import Protocol
 
+from freestack.domain.caveat import Caveat
 from freestack.domain.limit import Limit
 from freestack.domain.plan import Plan
+from freestack.domain.pricing import PlanPricing
 from freestack.domain.provider import Provider
 from freestack.domain.service import Service
 from freestack.domain.source import Source
@@ -46,6 +48,10 @@ class CatalogRepository(Protocol):
         """Return a service's plans sorted by id."""
         ...
 
+    def list_all_plans(self) -> tuple[Plan, ...]:
+        """Return every stored plan sorted by id."""
+        ...
+
     def add_source(self, source: Source) -> None:
         """Store a source."""
         ...
@@ -64,4 +70,20 @@ class CatalogRepository(Protocol):
 
     def list_limits(self, plan_id: str) -> tuple[Limit, ...]:
         """Return a plan's limits sorted by metric, then period."""
+        ...
+
+    def add_plan_pricing(self, pricing: PlanPricing) -> None:
+        """Store pricing for a plan. Each plan has at most one pricing row."""
+        ...
+
+    def get_plan_pricing(self, plan_id: str) -> PlanPricing | None:
+        """Return a plan's pricing, or None when it is not stored."""
+        ...
+
+
+class CaveatCatalog(Protocol):
+    """Read-only caveat notes. This port does not persist caveats."""
+
+    def list_caveats(self, plan_id: str) -> tuple[Caveat, ...]:
+        """Return caveats for a plan, or an empty tuple when there are none."""
         ...

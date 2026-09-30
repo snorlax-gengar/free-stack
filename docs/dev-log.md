@@ -277,6 +277,49 @@ Recommendation Engine이 나중에 쓸 카탈로그 메타데이터를 Domain과
   - 기존 159개 테스트 통과.
   - Catalog loader, integrity, snapshot, semantic guard, source, engine readiness 테스트를 추가했다.
 
+## FREE-007 PR 1 — Catalog 선행 작업
+
+### Goal
+
+Recommendation Engine을 구현하기 전에 Catalog 조회, 가격, Caveat Port를 준비한다. 실제 판정 로직은 구현하지 않는다.
+
+### Design
+
+- `CatalogRepository.list_all_plans()`는 저장된 모든 Plan을 `plan.id` 오름차순으로 반환한다. 빈 저장소는 `()`이다.
+- `ExceedBehavior`는 `charged`, `suspended`, `restricted`다. Metric별 초과 동작은 모델링하지 않는다.
+- `PlanPricing`은 Plan의 월 기본요금(USD cents)과 초과 시 가능한 동작 집합, `source_id`를 가진다.
+- `add_plan_pricing()`은 Plan 존재, Source 존재, Plan당 Pricing 중복 순서로 검증한다. `get_plan_pricing()`은 없으면 `None`이다.
+- `Caveat`는 id가 없는 값 객체다. `CaveatCatalog`는 `list_caveats(plan_id)`만 제공한다.
+- `SeedCaveatCatalog`는 FREE-006 `UnmodeledFact`를 Infrastructure에서 `Caveat`로 변환한다. Repository에는 저장하지 않는다.
+
+### Decisions
+
+- 가격을 저장할 수 있는 구조만 추가하고, 실제 Provider 가격 Seed는 넣지 않는다. 공식 문서 확인과 Seed는 FREE-008로 미룬다.
+- Caveat는 Entity가 아니다. persistence 대상이 아니고, Recommendation 판정에 쓰지 않는다.
+- `UnmodeledFact`는 Domain Recommendation Engine이 import하지 않는다. Infrastructure의 `SeedCaveatCatalog`가 `Caveat`로 변환한다.
+- PlanPricing은 Plan당 최대 하나다. `source_id`는 필수다. 기본요금 `0`은 무료 기본요금이고, 행이 없으면 가격 미확인이다.
+- `list_all_plans()`는 삽입 순서와 관계없이 id 오름차순이다.
+- Caveat 순서는 Seed의 `unmodeled_facts` 순서를 유지한다. 별도 정렬 키는 없다.
+- `monthly_base_fee_usd_cents`만 둔다. Overage rate는 이번 모델에 넣지 않는다.
+
+### Out of Scope
+
+- Recommendation Engine
+- ProjectRequirement
+- Need
+- Evaluator
+- RecommendationService
+- Pricing Seed
+- API
+- LLM
+- PostgreSQL
+
+### Test
+
+- `uv run pytest` — 231 passed.
+  - 기존 178개 테스트 통과.
+  - Pricing, Caveat, `list_all_plans`, PlanPricing contract, SeedCaveatCatalog 테스트를 추가했다.
+
 
 
 

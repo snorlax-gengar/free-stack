@@ -14,6 +14,8 @@ from freestack.domain.recommendation.checks import (
     CheckOutcome,
     CheckResult,
     ReasonCode,
+    BudgetCheck,
+    LimitCheck,
     check_budget,
     check_capability,
     check_limit,
@@ -246,6 +248,81 @@ def test_exceed_behavior_does_not_change_the_budget_result(behavior: ExceedBehav
     assert within.outcome is CheckOutcome.SATISFIED
     assert over.reason_code is ReasonCode.OVER_BUDGET
     assert over.outcome is CheckOutcome.VIOLATED
+
+
+def test_limit_check_keeps_the_limit_it_used() -> None:
+    within = _limit(LimitMetric.FILE_STORAGE_BYTES, LimitPeriod.NONE, 10 * GB)
+    exceeded = _limit(LimitMetric.FILE_STORAGE_BYTES, LimitPeriod.NONE, 10 * GB)
+    unlimited = _limit(LimitMetric.BANDWIDTH_BYTES, LimitPeriod.MONTH, None)
+
+    within_result = check_limit(
+        (within,),
+        _quantity(LimitMetric.FILE_STORAGE_BYTES, LimitPeriod.NONE, 5 * GB),
+    )
+    equal_result = check_limit(
+        (within,),
+        _quantity(LimitMetric.FILE_STORAGE_BYTES, LimitPeriod.NONE, 10 * GB),
+    )
+    exceeded_result = check_limit(
+        (exceeded,),
+        _quantity(LimitMetric.FILE_STORAGE_BYTES, LimitPeriod.NONE, 11 * GB),
+    )
+    unlimited_result = check_limit(
+        (unlimited,),
+        _quantity(LimitMetric.BANDWIDTH_BYTES, LimitPeriod.MONTH, 11 * GB),
+    )
+
+    assert isinstance(within_result, LimitCheck)
+    assert within_result.limit is within
+    assert within_result.other_period_limits == ()
+    assert equal_result.limit is within
+    assert isinstance(exceeded_result, LimitCheck)
+    assert exceeded_result.reason_code is ReasonCode.EXCEEDS_LIMIT
+    assert exceeded_result.limit is exceeded
+    assert isinstance(unlimited_result, LimitCheck)
+    assert unlimited_result.reason_code is ReasonCode.UNLIMITED
+    assert unlimited_result.limit is unlimited
+
+
+def test_period_mismatch_keeps_other_period_limits_in_input_order() -> None:
+    day = _limit(LimitMetric.BANDWIDTH_BYTES, LimitPeriod.DAY, 1)
+    unused = _limit(LimitMetric.FILE_STORAGE_BYTES, LimitPeriod.NONE, 10 * GB)
+    none_period = _limit(LimitMetric.BANDWIDTH_BYTES, LimitPeriod.NONE, 2)
+
+    result = check_limit(
+        (day, unused, none_period),
+        _quantity(LimitMetric.BANDWIDTH_BYTES, LimitPeriod.MONTH, 5 * GB),
+    )
+
+    assert isinstance(result, LimitCheck)
+    assert result.reason_code is ReasonCode.LIMIT_PERIOD_MISMATCH
+    assert result.limit is None
+    assert result.other_period_limits == (day, none_period)
+
+
+def test_missing_limit_keeps_no_evidence() -> None:
+    result = check_limit(
+        (),
+        _quantity(LimitMetric.DATABASE_SIZE_BYTES, LimitPeriod.NONE, 1 * GB),
+    )
+
+    assert isinstance(result, LimitCheck)
+    assert result.reason_code is ReasonCode.LIMIT_NOT_FOUND
+    assert result.limit is None
+    assert result.other_period_limits == ()
+
+
+def test_budget_check_keeps_the_pricing_it_used() -> None:
+    pricing = _pricing(500)
+    within = check_budget(pricing, BudgetNeed(max_monthly_usd_cents=1000))
+    missing = check_budget(None, BudgetNeed(max_monthly_usd_cents=0))
+
+    assert isinstance(within, BudgetCheck)
+    assert within.pricing is pricing
+    assert within.reason_code is ReasonCode.WITHIN_BUDGET
+    assert isinstance(missing, BudgetCheck)
+    assert missing.pricing is None
+    assert missing.reason_code is ReasonCode.PRICING_NOT_FOUND
 
 
 def test_checks_do_not_import_infrastructure_or_frameworks() -> None:

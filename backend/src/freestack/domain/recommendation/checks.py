@@ -62,6 +62,35 @@ class CheckResult:
         return _OUTCOME_BY_REASON[self.reason_code]
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class LimitCheck(CheckResult):
+    """A quantity check plus the limits that produced it."""
+
+    limit: Limit | None
+    other_period_limits: tuple[Limit, ...]
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.limit is not None and not isinstance(self.limit, Limit):
+            raise ValueError(f"invalid limit: {self.limit!r}")
+        if not isinstance(self.other_period_limits, tuple) or any(
+            not isinstance(item, Limit) for item in self.other_period_limits
+        ):
+            raise ValueError(f"invalid other_period_limits: {self.other_period_limits!r}")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BudgetCheck(CheckResult):
+    """A budget check plus the pricing that produced it."""
+
+    pricing: PlanPricing | None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.pricing is not None and not isinstance(self.pricing, PlanPricing):
+            raise ValueError(f"invalid pricing: {self.pricing!r}")
+
+
 def check_capability(plan: Plan, need: CapabilityNeed) -> CheckResult:
     """Report whether the plan provides the needed capability."""
 
@@ -70,7 +99,7 @@ def check_capability(plan: Plan, need: CapabilityNeed) -> CheckResult:
     return CheckResult(reason_code=ReasonCode.CAPABILITY_NOT_PROVIDED)
 
 
-def check_limit(limits: Sequence[Limit], need: QuantityNeed) -> CheckResult:
+def check_limit(limits: Sequence[Limit], need: QuantityNeed) -> LimitCheck:
     """Compare a quantity need with limits already loaded for one plan."""
 
     exact = next(
@@ -83,20 +112,35 @@ def check_limit(limits: Sequence[Limit], need: QuantityNeed) -> CheckResult:
     )
     if exact is not None:
         if exact.value is None:
-            return CheckResult(reason_code=ReasonCode.UNLIMITED)
-        if need.required <= exact.value:
-            return CheckResult(reason_code=ReasonCode.WITHIN_LIMIT)
-        return CheckResult(reason_code=ReasonCode.EXCEEDS_LIMIT)
-    if any(limit.metric is need.metric for limit in limits):
-        return CheckResult(reason_code=ReasonCode.LIMIT_PERIOD_MISMATCH)
-    return CheckResult(reason_code=ReasonCode.LIMIT_NOT_FOUND)
+            reason = ReasonCode.UNLIMITED
+        elif need.required <= exact.value:
+            reason = ReasonCode.WITHIN_LIMIT
+        else:
+            reason = ReasonCode.EXCEEDS_LIMIT
+        return LimitCheck(
+            reason_code=reason,
+            limit=exact,
+            other_period_limits=(),
+        )
+    other_period_limits = tuple(limit for limit in limits if limit.metric is need.metric)
+    if other_period_limits:
+        return LimitCheck(
+            reason_code=ReasonCode.LIMIT_PERIOD_MISMATCH,
+            limit=None,
+            other_period_limits=other_period_limits,
+        )
+    return LimitCheck(
+        reason_code=ReasonCode.LIMIT_NOT_FOUND,
+        limit=None,
+        other_period_limits=(),
+    )
 
 
-def check_budget(pricing: PlanPricing | None, need: BudgetNeed) -> CheckResult:
+def check_budget(pricing: PlanPricing | None, need: BudgetNeed) -> BudgetCheck:
     """Compare a budget with the plan base fee. Exceed behavior is ignored."""
 
     if pricing is None:
-        return CheckResult(reason_code=ReasonCode.PRICING_NOT_FOUND)
+        return BudgetCheck(reason_code=ReasonCode.PRICING_NOT_FOUND, pricing=None)
     if pricing.monthly_base_fee_usd_cents <= need.max_monthly_usd_cents:
-        return CheckResult(reason_code=ReasonCode.WITHIN_BUDGET)
-    return CheckResult(reason_code=ReasonCode.OVER_BUDGET)
+        return BudgetCheck(reason_code=ReasonCode.WITHIN_BUDGET, pricing=pricing)
+    return BudgetCheck(reason_code=ReasonCode.OVER_BUDGET, pricing=pricing)

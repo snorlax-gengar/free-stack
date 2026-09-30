@@ -489,6 +489,76 @@ RecommendationEvaluation
   - 기존 322개 테스트 통과.
   - Plan, Role, Recommendation 집계와 multi-role 후보 분리 테스트를 추가했다.
 
+## FREE-007 PR3-1 — Recommendation Application Service
+
+### Goal
+
+Recommendation Engine의 평가 결과를 Application Layer의 `RecommendationService`와 연결한다. Service는 추천을 결정하지 않는다.
+
+### Responsibility
+
+```text
+Domain Engine = 판단
+Application Service = 수집/위임/조립
+Repository = Catalog 조회
+```
+
+### Design Decisions
+
+- `recommend()`는 `list_all_plans()`로 모든 Plan을 Engine에 전달한다. Application에서 Capability로 미리 거르지 않는다.
+- 모든 Plan의 Limit을 조회하고, Limit이 없어도 빈 tuple을 넣는다.
+- Pricing은 `get_plan_pricing()`으로 조회한다. `evaluate()`가 `Mapping[str, PlanPricing]`을 받으므로 `None`은 맵에 넣지 않는다.
+- Requirement는 기존 `derive_needs()`로 바꾼 뒤 `evaluate()`에 그대로 전달한다. Feature와 Capability 매핑을 다시 만들지 않는다.
+- Evaluation에 등장한 Plan만 Service와 Provider를 조회한다. 같은 `recommend()` 호출 안에서만 로컬 캐시를 쓴다.
+- `compatible`, `unknown`, `incompatible`에 나온 Plan을 모두 `PlanDetail`에 포함한다. 같은 Plan은 한 번만 만들고 `plan.id` 오름차순으로 정렬한다.
+- Engine의 `RecommendationEvaluation`을 필터링하거나 다시 만들지 않고 `RecommendationResult.evaluation`에 그대로 넣는다.
+- Plan이 가리키는 Service나 Provider가 없으면 기존 `RelatedEntityNotFoundError`를 발생시킨다. Repository와 Engine 예외는 삼키지 않는다.
+- Caveat와 Source는 PR3-2로 미룬다.
+- ranking, score, winner는 구현하지 않는다.
+
+### Verification
+
+- `uv run pytest tests/application/test_recommendation_service.py` — 13 passed.
+- `uv run pytest tests/integration/test_recommendation_service_with_seed.py` — 1 passed.
+- `uv run pytest` — 352 passed.
+  - 기존 338개 테스트 통과.
+
+## FREE-007 PR3-2 — Caveat / Source
+
+### Goal
+
+`RecommendationResult`와 `PlanDetail`에 Caveat과 Source 근거를 연결한다. 이 정보는 이미 계산된 Evaluation을 설명하며, 판정을 바꾸지 않는다.
+
+### Design
+
+```text
+Evaluation
+    ↓
+PlanDetail
+    ├── Caveats
+    └── Sources
+```
+
+### Important Decisions
+
+1. Caveat은 Evaluation에 등장한 모든 Plan에 연결한다.
+2. incompatible Plan도 Caveat을 연결한다.
+3. Source는 실제 Evaluation 증거, Pricing, Caveat에서만 수집한다.
+4. Plan에 등록된 모든 Limit Source를 가져오지 않는다.
+5. ReasonCode를 Application에서 다시 해석하지 않는다. `LimitCheck.limit`과 `other_period_limits`가 있는지만 본다.
+6. Evaluation 객체는 변경하지 않는다. Caveat 내용이 달라도 Evaluation은 같다.
+7. Source는 id 기준으로 중복을 제거하고 `source.id` 오름차순으로 정렬한다.
+8. Source 조회 캐시는 `recommend()` 호출 안의 지역 변수다.
+9. 누락된 Source는 `RelatedEntityNotFoundError`다. 여러 개가 없으면 source id 오름차순의 첫 항목에서 실패한다.
+10. `PlanDetail.caveats`와 `sources`는 기본값 없는 필수 필드다.
+
+이번 작업은 Case B다. 기존 `CheckResult`는 reason code만 가지고 있었다. `LimitCheck`와 `BudgetCheck`를 추가해 판정에 사용한 `Limit`과 `PlanPricing`을 결과에 보존했다. `check_limit()`과 `check_budget()`의 판정 분기는 바꾸지 않았다.
+
+### Verification
+
+- `uv run pytest` — 363 passed.
+  - 기존 352개 테스트 통과.
+
 
 
 

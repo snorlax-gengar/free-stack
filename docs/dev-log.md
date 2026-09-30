@@ -559,6 +559,54 @@ PlanDetail
 - `uv run pytest` — 363 passed.
   - 기존 352개 테스트 통과.
 
+## FREE-008 PR1 — Composition Domain Models
+
+### Goal
+
+FREE-008 Composition을 시작한다. 이번 PR은 Stack과 Composition 결과의 Value Object와 불변식만 확정한다. `compose()`와 Application Service는 만들지 않는다.
+
+### Design
+
+Stack은 평가된 모든 Role에 compatible 또는 unknown Plan을 하나씩 배정한 완전한 조합이다. 같은 Plan이 여러 Role을 맡는 Assignment는 각각 보존하고, `Stack.plan_ids`에는 그 Plan을 한 번만 넣는다.
+
+```text
+RoleAssignment
+    ↓
+Stack
+    ├── plan_ids
+    ├── status
+    └── sort_key
+CompositionResult
+    ├── compatible / unknown / incompatible
+    └── blocked_roles
+```
+
+### Important Decisions
+
+- compatible과 unknown만 RoleAssignment가 될 수 있다. Role 단위 incompatible은 배정하지 않는다.
+- `no-candidates`는 그 Role의 세 그룹이 모두 빈 경우다. `all-incompatible`은 incompatible 후보만 있는 경우다. Capability가 없어 후보가 아닌 Plan은 `all-incompatible`에 넣지 않는다.
+- Stack status는 Assignment를 satisfied 또는 unknown으로 바꾼 뒤, budget check가 있으면 그 outcome을 더한다. violated가 있으면 incompatible, 없고 unknown이 있으면 unknown, 모두 satisfied면 compatible이다.
+- `sort_key`와 그룹 정렬은 출력 순서를 고정하기 위한 것이다. 추천 순위가 아니다.
+- Stack budget의 금액 계산은 다음 PR에서 한다. 이번 타입은 이미 계산된 `StackBudgetCheck`가 금액, reason, Plan 집합과 맞는지 검증만 한다.
+- ranking, winner, score, best stack은 범위 밖이다.
+
+### Design Deviations
+
+Claude 설계의 접근 경로와 실제 FREE-007 코드가 다르다. FREE-007은 수정하지 않았고, 이번 PR은 Evaluation을 읽지 않는다.
+
+- `role.need.feature`는 없다. `RoleEvaluation.role`이 `Feature`다.
+- `plan_evaluation.plan_id`는 없다. Plan id는 `plan.id`다.
+- `budget_result`는 없다. 필드명은 `budget_check`이고, 가격 증거는 `BudgetCheck.pricing`이다.
+- `evaluation.requirement`는 없다. `RecommendationEvaluation`은 `roles`와 `unevaluated_features`만 가진다.
+- `aggregate_status()`는 없다. 같은 규칙은 `PlanEvaluation.status` 안에 있다. `Stack.status`가 그 순서를 로컬에서 다시 적용한다.
+- 공개 이름 `REASON_OUTCOMES`는 없다. 맵은 `_OUTCOME_BY_REASON`이다. `StackBudgetCheck.outcome`은 `CheckResult.outcome`으로 같은 맵을 읽는다.
+- Composition의 Feature 정렬은 Feature 문자열 값 기준이다. FREE-007 Role 순서는 enum 선언 순서다.
+
+### Verification
+
+- `uv run pytest` — 396 passed.
+  - 기존 363개 테스트 통과.
+
 
 
 

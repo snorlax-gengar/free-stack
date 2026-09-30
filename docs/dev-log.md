@@ -607,6 +607,42 @@ Claude 설계의 접근 경로와 실제 FREE-007 코드가 다르다. FREE-007�
 - `uv run pytest` — 396 passed.
   - 기존 363개 테스트 통과.
 
+## FREE-008 PR2 — Composition Composer
+
+### Goal
+
+`RecommendationEvaluation`의 Role별 compatible/unknown 후보로 Cartesian Product를 만들어 `CompositionResult`를 반환한다.
+
+### Decisions
+
+- compatible과 unknown만 후보다. incompatible은 후보에서 뺀다.
+- 모든 Role이 후보를 가질 때만 완전 조합을 만든다.
+- `max_combinations`를 넘으면 일부 Stack을 반환하지 않고 `too-many-combinations`다. `combination_count`에는 전체 조합 수를 넣는다.
+- `max_combinations`는 필수 keyword-only이며 1 이상의 int다. bool, 0, 음수, 정수가 아닌 값은 거부한다. 이 검증은 `no-roles` 판단보다 먼저다.
+- Role이 없으면 `no-roles`이고 `combination_count`는 0이다. 빈 곱의 1을 쓰지 않는다.
+- Stack 상태는 PR1 `Stack.status`가 계산한다. Composer는 그 값으로 그룹을 나눈다.
+- 같은 Plan이 여러 Role을 맡는 것을 허용한다. Role마다 status가 다르면 Assignment에 그대로 남긴다.
+- PR2는 `budget_check`를 계산하지 않고 `None`을 넣는다. Stack budget은 PR3에서 계산한다.
+- Role 순서는 Feature 문자열 값 오름차순이다. 후보 순서는 plan id 오름차순이고, 그룹은 `Stack.sort_key` 오름차순이다.
+- `unevaluated_features`는 조합을 막지 않으며 결과로 그대로 전달한다.
+
+### Out of Scope
+
+- Ranking
+- Winner
+- Budget calculation
+- Limit calculation
+- Application
+- API
+- LLM
+- Repository
+- Infrastructure
+
+### Verification
+
+- `uv run pytest` — 417 passed.
+  - 기존 396개 테스트 통과.
+
 
 
 

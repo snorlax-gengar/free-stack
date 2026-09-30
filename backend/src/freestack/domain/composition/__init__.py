@@ -1,1 +1,1 @@
-"""Composition value objects. This package does not build stacks."""
+"""Composition value objects and the pure stack composer."""

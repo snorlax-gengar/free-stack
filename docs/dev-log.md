@@ -236,6 +236,48 @@ Recommendation Engine이 나중에 쓸 카탈로그 메타데이터를 Domain과
   - 기존 96개 테스트 통과.
   - FREE-005에서 Plan capability, Limit, Source, Catalog contract 테스트를 추가했다.
 
+## FREE-006 — Catalog Seed
+
+### Goal
+
+확정된 Domain 모델에 Cloudflare, Render, Supabase의 실제 카탈로그 데이터를 Infrastructure Seed로 넣을 수 있게 한다. Recommendation Engine은 구현하지 않는다.
+
+### Design
+
+- Provider마다 `CatalogBundle`을 둔다. 공통 `load_catalog()`가 `CatalogRepository`에만 의존한다.
+- 적재 순서는 Source, Provider, Service, Plan, Limit이다.
+- `UnmodeledFact`는 현재 Domain이 저장하지 못하는 공식 문서 사실을 Source와 함께 보존한다. Repository에는 넣지 않는다.
+- 공식 문서를 Source로 연결한다. 확인일은 2026-09-30이다.
+- 문서가 GB/MB로 적은 양은 `domain/units.py`의 10진 상수를 사용한다.
+
+### Decisions
+
+- Pricing Model은 FREE-007 초반 설계로 보류한다. 이번 Seed의 Plan은 모두 Free라서 가격 모델을 검증할 데이터가 없다.
+- Limit과 Price는 다른 개념이다. Limit은 Plan에 포함된 사용량이다. Base price는 사용량과 무관한 고정 요금이고, overage rate는 포함량을 넘긴 사용량의 단가이며, on exceed는 한도를 넘겼을 때의 동작이다. R2의 무료 Storage 10 GB와 초과 과금을 하나의 가격 필드로 합치지 않는다.
+- `Plan.slug == "free"`를 가격 판단에 쓰지 않는다.
+- 의미가 다른 수치를 기존 Metric으로 바꾸지 않는다. Pages의 500 builds/month, 20분 build timeout, Render의 750 instance hours/month와 0.1 CPU, 512 MB RAM, Supabase의 MAU, Edge Function invocations, Realtime messages는 Limit으로 등록하지 않는다.
+- Pages와 Render Web Service Free는 현재 Limit이 없다. 이는 누락이 아니라 unknown이다.
+- R2와 Supabase에서는 현재 Metric으로 표현되는 Limit만 등록한다. R2 egress는 `bandwidth-bytes` / `month` / `None`이다. `0`이 아니다.
+- Source는 공식 문서 단위로 공유한다. 같은 문서가 여러 Limit과 Fact를 뒷받침한다.
+- 같은 Seed를 두 번 적재하면 `DuplicateEntityError`로 실패한다. skip과 upsert는 쓰지 않는다. FREE-004에서 upsert를 제외했고, 조용히 옛 값이 남으면 Seed 변경을 놓친다. PostgreSQL 동기화는 별도 설계다.
+- Provider, Service, Plan, Capability, Limit, Source Domain과 CatalogRepository, InMemory 구현은 바꾸지 않았다. 추가한 Domain 파일은 단위 상수 `units.py`뿐이다.
+- `UnmodeledFact`는 Infrastructure 전용이다.
+
+### FREE-007 준비사항
+
+1. Limit 행이 없을 때의 unknown 처리 정책.
+2. `UnmodeledFact`를 입력으로 쓰는 Caveat 모델.
+3. Base price, overage rate, on exceed를 구분하는 최소 Pricing Model.
+4. 전체 Plan 조회. 이번 작업에서는 `list_all_plans()`를 추가하지 않았다.
+5. ProjectRequirement와 LimitMetric의 대응 관계. 새 Metric은 Engine이 실제로 판정할 요구사항을 확인한 뒤에 설계한다.
+
+### Tests
+
+- `uv run pytest` — 178 passed.
+  - 기존 159개 테스트 통과.
+  - Catalog loader, integrity, snapshot, semantic guard, source, engine readiness 테스트를 추가했다.
+
+
 
 
 

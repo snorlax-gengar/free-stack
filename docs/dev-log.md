@@ -320,6 +320,175 @@ Recommendation Engine을 구현하기 전에 Catalog 조회, 가격, Caveat Port
   - 기존 178개 테스트 통과.
   - Pricing, Caveat, `list_all_plans`, PlanPricing contract, SeedCaveatCatalog 테스트를 추가했다.
 
+## FREE-007 PR2-1 — ProjectRequirement / Need
+
+### Goal
+
+`ProjectRequirement`를 정의하고, Recommendation Engine이 사용할 Need로 변환하는 기반을 만든다. Plan 평가는 구현하지 않는다.
+
+### Design
+
+```text
+ProjectRequirement
+        ↓
+derive_needs()
+        ↓
+DerivedNeeds
+ ├─ CapabilityNeed
+ ├─ QuantityNeed
+ ├─ BudgetNeed
+ └─ unevaluated_features
+```
+
+`ProjectRequirement`는 무엇이 필요한지만 표현한다. 이 Plan이 요구사항을 만족하는지는 이후 Evaluator의 책임이다.
+
+### Decisions
+
+- Feature와 CapabilityKey를 분리했다. Feature는 사용자 요구이고, CapabilityKey는 Catalog가 제공하는 능력이다.
+- `ai-api`는 현재 Capability로 평가할 수 없어 `unevaluated_features`에 보존한다. `server-compute`나 `serverless-functions`로 바꾸지 않는다.
+- Quantity는 기존 `LimitMetric`과 `LimitPeriod`를 사용한다. 새 Metric과 Period는 추가하지 않는다.
+- `file_storage_bytes`는 `file-storage-bytes` / `none` / `file-uploads`다. `database_size_bytes`는 `database-size-bytes` / `none` / `database`다.
+- bandwidth는 현재 Plan-level quantity로 취급한다. `bandwidth-bytes` / `month`이며 `applies_to`는 `None`이다. 특정 Feature에 묶지 않는다.
+- Need는 Entity가 아니다. id가 없는 Value Object다.
+- `bool`은 integer quantity로 허용하지 않는다.
+- resource quantity의 `0`은 허용하지 않는다. `None`은 해당 QuantityNeed를 만들지 않는다.
+- budget의 `0`은 무료만 허용한다는 의미이므로 허용한다. `None`이면 BudgetNeed를 만들지 않는다.
+- 단위 변환은 이 단계에서 하지 않는다. 입력 정수를 그대로 `required`로 옮긴다.
+- `derive_needs()`는 Repository와 Infrastructure에 의존하지 않는다. 결과는 Feature 정의 순서와 quantity 필드 순서로 고정한다.
+
+### Out of Scope
+
+- ReasonCode
+- CheckOutcome
+- PlanEvaluation
+- RoleEvaluation
+- RecommendationService
+- API
+- LLM
+- DB
+- pricing seed
+- actual recommendation ranking
+
+### Test
+
+- `uv run pytest` — 289 passed.
+  - 기존 231개 테스트 통과.
+  - ProjectRequirement validation과 `derive_needs()` 테스트를 추가했다.
+
+## FREE-007 PR2-2 — ReasonCode / Check
+
+### Goal
+
+Need를 deterministic한 Check 결과로 평가하는 기반을 만든다. 여러 Check를 PlanEvaluation으로 집계하지 않는다.
+
+### Design
+
+```text
+CapabilityNeed
+      ↓
+Capability Check
+      ↓
+ReasonCode + CheckOutcome
+QuantityNeed
+      ↓
+Limit Check
+      ↓
+ReasonCode + CheckOutcome
+BudgetNeed
+      ↓
+Budget Check
+      ↓
+ReasonCode + CheckOutcome
+```
+
+### Decisions
+
+- ReasonCode를 판단의 핵심 결과로 사용한다. `CheckResult`는 reason code만 저장하고, outcome은 그 코드에서 계산한다.
+- Outcome은 `satisfied`, `violated`, `unknown` 세 가지다. `unknown`을 `violated`로 취급하지 않는다.
+- Capability 미제공은 `violated`다. 이번 단계에서는 후보 제외를 하지 않는다.
+- Limit 초과는 `violated`다. 필요한 양이 Limit 값 이하이면 `within-limit`이다. 같은 값도 만족이다.
+- `Limit.value=None`은 unlimited이며 `satisfied`다. `0`으로 해석하지 않는다.
+- Limit 행이 없으면 `limit-not-found` / `unknown`이다.
+- 같은 Metric이 있지만 Period가 다르면 `limit-period-mismatch` / `unknown`이다. Period를 변환하지 않는다. 같은 Metric과 Period가 있으면 그 Limit을 우선한다.
+- Budget은 `monthly_base_fee_usd_cents`만 사용한다. `ExceedBehavior`는 예산 판단에 쓰지 않는다.
+- Pricing이 없으면 `pricing-not-found` / `unknown`이다. 가격이 없다는 이유만으로 `over-budget`이 아니다.
+- Check는 Repository를 호출하지 않는다. 이미 전달된 Plan, Limit 목록, PlanPricing만 본다.
+
+### Out of Scope
+
+- PlanEvaluation
+- RoleEvaluation
+- RecommendationEvaluation
+- RecommendationService
+- ranking
+- caveat composition
+- API
+- LLM
+- DB
+
+### Test
+
+- `uv run pytest` — 322 passed.
+  - 기존 289개 테스트 통과.
+  - ReasonCode 매핑, Capability, Limit, Budget Check 테스트를 추가했다.
+
+## FREE-007 PR2-3 — Plan / Role / Recommendation Evaluation
+
+### Goal
+
+개별 Check 결과를 Plan, Role, 전체 Recommendation 수준으로 집계한다. RecommendationService와 Provider 조합은 구현하지 않는다.
+
+### Design
+
+```text
+DerivedNeeds
+    ↓
+Role Candidate Plans
+    ↓
+PlanEvaluation
+    ↓
+RoleEvaluation
+    ↓
+RecommendationEvaluation
+```
+
+### Decisions
+
+- 하나의 Plan이 모든 Feature를 만족해야 하는 구조는 쓰지 않는다. Feature별 Capability Role로 나눠 평가한다.
+- Role 식별자는 `Feature`다. 별도 Role Entity는 만들지 않는다.
+- Capability가 없는 Plan은 해당 Role의 candidate가 아니다. `incompatible`로 넣지 않는다.
+- Role별 Capability는 `DerivedNeeds`의 `CapabilityNeed`를 사용한다. Feature와 CapabilityKey 매핑 표를 복제하지 않는다.
+- Role-specific Quantity는 `applies_to == role`일 때만 `quantity_checks`에 들어간다.
+- `applies_to is None`인 Quantity는 `global_quantity_checks`다. 현재는 monthly bandwidth다.
+- 다른 Role의 Quantity는 현재 Role 평가에서 제외한다.
+- Budget은 Plan-level check다. Budget이 없으면 `budget_check`는 `None`이다.
+- Status는 `violated > unknown > satisfied` 우선순위다. 결과는 `incompatible`, `unknown`, `compatible`이다.
+- `compatible`은 명시된 조건에서 위반과 미확인이 없다는 뜻이다. 추천 1순위가 아니다.
+- ranking, winner selection, score는 구현하지 않는다.
+- `ai-api`는 Role을 만들지 않고 `unevaluated_features`에 남긴다.
+- `evaluate()`는 Repository와 Infrastructure를 호출하지 않는다. Limit과 Pricing은 인자로 받는다.
+- Role 순서는 Feature 정의 순서다. Plan 순서는 `plan.id`다.
+
+### Out of Scope
+
+- RecommendationService
+- Provider/Service composition
+- PlanDetail
+- Caveat
+- Source
+- ranking
+- score
+- winner
+- API
+- LLM
+- DB
+
+### Test
+
+- `uv run pytest` — 338 passed.
+  - 기존 322개 테스트 통과.
+  - Plan, Role, Recommendation 집계와 multi-role 후보 분리 테스트를 추가했다.
+
 
 
 

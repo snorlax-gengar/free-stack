@@ -643,6 +643,87 @@ Claude 설계의 접근 경로와 실제 FREE-007 코드가 다르다. FREE-007�
 - `uv run pytest` — 417 passed.
   - 기존 396개 테스트 통과.
 
+## FREE-008 PR3 — Stack Budget
+
+### Goal
+
+Composer가 만든 `CompositionResult`에 Stack 단위 예산을 별도 순수 Domain 단계로 적용한다.
+
+Stack Budget은 조합 생성과 분리되어 있다. 비용은 Role 수가 아니라 Stack의 unique Plan base fee 합계다.
+
+### Responsibility
+
+```text
+Composer = 후보의 Cartesian Product
+Budget = unique Plan base fee와 월 예산 비교
+Stack.status = assignment와 budget_check를 함께 집계
+```
+
+### Budget input
+
+- `monthly_budget_usd_cents`는 0 이상의 int다. bool, 음수, 정수가 아닌 값은 거부한다.
+- 0은 허용한다.
+- 검증은 composed가 아닌 결과보다 먼저 한다.
+
+### Pricing aggregation
+
+- Pricing은 `PlanEvaluation.budget_check`가 `BudgetCheck`일 때 `pricing`에서 읽는다. `budget_result` 필드는 없다.
+- compatible, unknown, incompatible을 모두 본다.
+- `None`이거나 budget check가 없으면 mapping에서 뺀다.
+- 같은 Plan의 Pricing이 서로 다르거나, 한쪽만 `None`이면 `ValueError`다.
+- 둘 다 없으면 오류가 아니다.
+
+### Unique Plan 비용 계산
+
+- `plan_ids`는 중복을 제거한 뒤 정렬한다.
+- Pricing이 있으면 priced, 없으면 unpriced다.
+- `known_total_usd_cents`는 priced Plan의 `monthly_base_fee_usd_cents`만 합한다. 없는 가격을 0원으로 두지 않는다.
+- Stack에 없는 Pricing은 비용에 넣지 않는다.
+- mapping key와 `PlanPricing.plan_id`가 다르면 오류다.
+- `ExceedBehavior`는 판정에 쓰지 않는다.
+
+### Priority
+
+```text
+over-budget > pricing-not-found > within-budget
+```
+
+알려진 합계가 예산을 넘으면 unpriced Plan이 있어도 `over-budget`이다. 합계가 예산과 같으면 넘지 않는다.
+
+### Non-composed
+
+`no-roles`, `blocked`, `too-many-combinations`는 예산 계산을 하지 않고 같은 객체를 반환한다. `pricing_by_plan`을 읽지 않는다.
+
+### Stack status 재분류
+
+새 `budget_check`만 붙인 Stack을 만들고, 그룹은 `Stack.status`로 다시 나눈다. Budget 모듈은 상태 우선순위를 따로 계산하지 않는다. 각 그룹은 `sort_key` 오름차순이다.
+
+`blocked_roles`, `combination_count`, `unevaluated_features`는 유지한다. 이미 `budget_check`가 있으면 다시 적용하지 않는다.
+
+### Deterministic ordering
+
+- 수집한 Pricing map의 key는 plan id 오름차순이다.
+- priced와 unpriced id도 오름차순이다.
+- 재분류된 그룹도 `sort_key` 오름차순이다.
+
+### Out of scope
+
+- Composer 수정
+- PR1 모델 수정
+- FREE-007 수정
+- Application, Repository, Infrastructure
+- Pricing Seed
+- Limit 평가, ranking, winner, API, LLM, DB
+
+### Next step
+
+Pricing Seed와 Application에서 `collect_plan_pricing` / `apply_stack_budget`을 연결하는 작업은 다음 PR이다.
+
+### Verification
+
+- `uv run pytest` — 435 passed.
+  - 기존 417개 테스트 통과.
+
 
 
 

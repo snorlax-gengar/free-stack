@@ -1,1 +1,1 @@
-"""Composition value objects and the pure stack composer."""
+"""Composition value objects, the pure stack composer, and stack budget."""

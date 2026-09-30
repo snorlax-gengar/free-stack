@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from freestack.api.dependencies import get_stack_composition_service
-from freestack.api.errors import internal_error, invalid_requirement_error
+from freestack.api.errors import ErrorResponse, internal_error, invalid_requirement_error
 from freestack.api.mappers import to_requirement, to_response
 from freestack.api.schemas import RecommendationRequest, RecommendationResponse
 from freestack.application.composition import StackCompositionService
@@ -10,7 +10,14 @@ from freestack.domain.errors import RepositoryError
 router = APIRouter()
 
 
-@router.post("/recommendations", response_model=RecommendationResponse)
+@router.post(
+    "/recommendations",
+    response_model=RecommendationResponse,
+    responses={
+        422: {"model": ErrorResponse, "description": "The request is invalid."},
+        500: {"model": ErrorResponse, "description": "An internal error occurred."},
+    },
+)
 def create_recommendation(
     request: RecommendationRequest,
     service: StackCompositionService = Depends(get_stack_composition_service),

@@ -931,6 +931,45 @@ Schema와 Mapper는 FastAPI와 Infrastructure를 import하지 않는다. Infrast
   - 기존 484개 테스트 통과. API HTTP 테스트 12개 추가.
 - `git diff --check` 통과.
 
+## FREE-009 PR4 — HTTP API Contract
+
+### Goal
+
+`POST /api/v1/recommendations`가 HTTP와 OpenAPI에서 PR2/PR3 계약과 같게 동작하는지 검증한다. Domain, Application, Infrastructure는 바꾸지 않는다.
+
+### Verification
+
+실제 ASGI 호출과 `app.openapi()`로 확인했다.
+
+- 성공 응답은 HTTP 200, `application/json`이다. 최상위 필드는 `requirement`, `roles`, `composition`, `unevaluated_features`, `plans`, `sources`다.
+- `plans[plan_id].plan.id`는 map key와 같다. Plan 값은 `plan`, `service`, `provider`, `pricing`, `caveats`, `sources`다.
+- Caveat는 `plan_id`, `statement`, `source_id`다. Source는 `id`, `url`, `checked_at`, `notes`다.
+- 예산이 없으면 stack `budget_check`는 `null`이다. 예산이 0이면 seed는 `pricing-not-found`를 그대로 반환하고, pricing을 `0`으로 만들지 않는다.
+- 같은 요청의 stack key는 두 번 호출해도 같다. 테스트는 key를 parsing하지 않는다.
+- HTTP JSON은 `to_response()` 결과와 같다. assignment 순서와 `plan_ids` 순서는 그 결과에 있다.
+- `composed`, `blocked`, `no-roles`, `too-many-combinations`는 HTTP 200이다.
+- Pydantic 실패는 422 `REQUEST_VALIDATION_FAILED`다. `ProjectRequirement`의 `ValueError`는 422 `INVALID_REQUIREMENT`다.
+- `compose_stacks()`의 `ValueError`와 `RepositoryError`는 500 `INTERNAL_ERROR`이고 message는 `An internal error occurred.`다. PR3 테스트가 이 경로를 유지한다.
+- `GET /health`는 200 `{"status": "ok"}`다.
+- `GET /openapi.json`과 `GET /docs`는 200이다. operation은 `POST /api/v1/recommendations`다.
+- `GET /api/v1/recommendations`는 405다. `POST /recommendations`와 `POST /api/recommendations`는 404다.
+
+Request schema는 `features`만 required다. 수량 필드는 integer 또는 null이고 `additionalProperties`는 false다. OpenAPI의 integer는 JSON Schema 표현이다. bool과 숫자 문자열 거부는 Pydantic strict validation이 담당하며 PR3 HTTP 테스트가 유지한다.
+
+### Deviation
+
+OpenAPI 422가 FastAPI 기본 `HTTPValidationError`(`detail` 배열)를 가리켰다. 실제 응답은 `{"error": {"code", "message"}}`다.
+
+`POST /api/v1/recommendations`의 422와 500 문서 schema를 `ErrorResponse`로 맞췄다. 응답 본문 처리와 Domain/Application은 바꾸지 않았다.
+
+405와 404는 추천 오류 코드가 아니다. FastAPI의 `detail` 응답을 새 코드로 바꾸지 않았다.
+
+### Verification result
+
+- `uv run pytest` — 501 passed.
+  - 기존 496개 테스트 통과. HTTP contract 테스트 5개 추가.
+- `git diff --check` 통과.
+
 
 
 

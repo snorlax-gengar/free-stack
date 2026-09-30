@@ -1,10 +1,28 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 
 from freestack.domain.errors import RepositoryError
 
 INTERNAL_ERROR_MESSAGE = "An internal error occurred."
+
+
+class ErrorObject(BaseModel):
+    """Stable error code and message. This object has no diagnostic details."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    message: str
+
+
+class ErrorResponse(BaseModel):
+    """HTTP body for a recommendation API error."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    error: ErrorObject
 
 
 class APIError(Exception):

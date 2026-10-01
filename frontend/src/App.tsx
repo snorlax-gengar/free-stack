@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getHealth } from './api/client'
 import { RequirementForm } from './features/requirement/RequirementForm.tsx'
+import { useRecommendationSubmit } from './features/requirement/useRecommendationSubmit.ts'
 import './App.css'
 
 type BackendStatus = 'checking' | 'ok' | 'failed'
@@ -17,6 +18,10 @@ function statusLabel(status: BackendStatus): string {
 
 export default function App() {
   const [status, setStatus] = useState<BackendStatus>('checking')
+  const submission = useRecommendationSubmit()
+  const submitting = submission.state.status === 'submitting'
+  const succeeded = submission.state.status === 'success'
+  const error = submission.state.status === 'error' ? submission.state.error : null
 
   useEffect(() => {
     let active = true
@@ -48,7 +53,14 @@ export default function App() {
         </div>
         <p className="health">{statusLabel(status)}</p>
       </header>
-      <RequirementForm />
+      <RequirementForm
+        submitting={submitting}
+        succeeded={succeeded}
+        error={error}
+        onSubmit={(request) => {
+          void submission.submit(request)
+        }}
+      />
     </main>
   )
 }

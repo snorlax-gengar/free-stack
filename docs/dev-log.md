@@ -1275,3 +1275,43 @@ CSS Modules, mobile first, 본문 최대 너비 640px, 1열, 터치 대상 약 4
 - 데스크톱 viewport 1920px에서 form 너비 688px, Feature grid `313px 313px`, horizontal overflow 없음.
 - 390px viewport에서 Feature grid는 1열이고 horizontal overflow 없음.
 - 빈 폼 제출, 500 MB, `ai-api`, Backend 종료, 키보드 Tab/Space는 이번 UI 확인에서 브라우저 클릭이 승인되지 않아 다시 누르지 못했다. 같은 동작은 단위 테스트와 직전 수동 확인에서 통과했다.
+
+## FREE-014 PR1 Submit State Ownership
+
+### Goal
+
+Recommendation Result를 붙이기 위해 Submit State의 소유권을 App으로 옮긴다. 결과 화면은 만들지 않는다.
+
+### Design
+
+App이 `useRecommendationSubmit()`을 호출한다. RequirementForm은 hook을 호출하지 않고, 이미 있는 submit 상태에서 필요한 값만 props로 받는다.
+
+```text
+submitting
+succeeded
+error
+onSubmit
+```
+
+응답 객체는 App이 가진 `SubmitState` 안에 남는다. `result`나 `recommendationResponse` 같은 별도 상태는 만들지 않았다. 성공 화면은 기존처럼 `추천 결과를 받았습니다.`만 보여 주고, 응답 JSON은 그리지 않는다.
+
+### Responsibility
+
+- App: submission state owner. health 표시와 RequirementForm 연결.
+- RequirementForm: 요구사항 입력, 로컬 validation, submit UI.
+- useRecommendationSubmit: API request lifecycle. Abort, submitting guard, error 상태의 동작은 그대로다.
+
+### Out of Scope
+
+- Recommendation Result UI
+- Stack / Role rendering
+- Plan Detail
+- Source / Caveat
+- Router
+
+### Tests
+
+- `npm test` — 70 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.

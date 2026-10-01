@@ -1,5 +1,6 @@
 import { useReducer, useState, type FormEvent } from 'react'
 import { featureValues } from '../../api/schema.gen.ts'
+import type { RecommendationRequest } from '../../api/types.ts'
 import { featureDescriptions, featureLabels } from '../../labels/features.ts'
 import { AmountField } from './AmountField.tsx'
 import {
@@ -12,13 +13,17 @@ import {
 import styles from './RequirementForm.module.css'
 import { submitErrorMessage } from './submitError.ts'
 import { toRecommendationRequest, type RequestField } from './toRecommendationRequest.ts'
-import { useRecommendationSubmit } from './useRecommendationSubmit.ts'
 
-export function RequirementForm() {
+export type RequirementFormProps = {
+  submitting: boolean
+  succeeded: boolean
+  error: unknown
+  onSubmit: (request: RecommendationRequest) => void
+}
+
+export function RequirementForm({ submitting, succeeded, error, onSubmit }: RequirementFormProps) {
   const [values, dispatch] = useReducer(formReducer, initialFormValues)
   const [errors, setErrors] = useState<readonly { field: RequestField; message: string }[]>([])
-  const submission = useRecommendationSubmit()
-  const submitting = submission.state.status === 'submitting'
 
   function messageFor(field: RequestField): string | undefined {
     return errors.find((error) => error.field === field)?.message
@@ -36,7 +41,7 @@ export function RequirementForm() {
       return
     }
     setErrors([])
-    void submission.submit(result.request)
+    onSubmit(result.request)
   }
 
   return (
@@ -112,19 +117,19 @@ export function RequirementForm() {
         <button className={styles.submit} type="submit" aria-disabled={submitting} aria-busy={submitting}>
           {submitting ? '추천 받는 중…' : '무료 스택 추천받기'}
         </button>
-        {submission.state.status === 'submitting' ? (
+        {submitting ? (
           <p className={styles.status} role="status">
             추천 받는 중…
           </p>
         ) : null}
-        {submission.state.status === 'success' ? (
+        {succeeded ? (
           <p className={styles.status} role="status">
             추천 결과를 받았습니다.
           </p>
         ) : null}
-        {submission.state.status === 'error' ? (
+        {error != null ? (
           <p className={styles.alert} role="alert">
-            {submitErrorMessage(submission.state.error)}
+            {submitErrorMessage(error)}
           </p>
         ) : null}
       </div>

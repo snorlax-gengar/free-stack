@@ -1,6 +1,9 @@
 import type { RecommendationResponse } from '../../../api/types.ts'
 
 // Test-only Recommendation API responses. Production code must not import this module.
+// H/I are retained for focused result-model unit tests and are not used
+// as complete UI-rendering fixtures because their full response state is
+// not internally consistent.
 
 export const fixtureA = {
   "requirement": {

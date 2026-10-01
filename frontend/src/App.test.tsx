@@ -2,8 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, getHealth } from './api/client'
 import { postRecommendation } from './api/recommendations'
-import type { RecommendationResponse } from './api/types'
 import App from './App'
+import { fixtureA } from './features/recommendation/fixtures/recommendationResponses.ts'
 
 vi.mock('./api/client', async () => {
   const actual = await vi.importActual<typeof import('./api/client')>('./api/client')
@@ -52,9 +52,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '무료 스택 추천받기' })).toBeTruthy()
   })
 
-  it('owns a successful recommendation without rendering the response', async () => {
+  it('renders the recommendation result after a successful submit', async () => {
     vi.mocked(getHealth).mockResolvedValue({ status: 'ok' })
-    vi.mocked(postRecommendation).mockResolvedValue(composedResponse())
+    vi.mocked(postRecommendation).mockResolvedValue(fixtureA)
 
     render(<App />)
     fireEvent.click(screen.getByLabelText('정적 프론트엔드'))
@@ -62,6 +62,8 @@ describe('App', () => {
 
     const status = await screen.findByText('추천 결과를 받았습니다.')
     expect(status.getAttribute('role')).toBe('status')
+    expect(screen.getByRole('heading', { name: '추천 결과' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Supabase Platform' })).toBeTruthy()
     expect(postRecommendation).toHaveBeenCalledWith(
       expect.objectContaining({
         features: ['static-frontend'],
@@ -99,30 +101,6 @@ describe('App', () => {
       await screen.findByText('선택한 기능과 입력값의 조합을 처리할 수 없습니다. 입력 내용을 확인해 주세요.'),
     ).toBeTruthy()
     expect(screen.queryByText('secret server message')).toBeNull()
+    expect(screen.queryByRole('heading', { name: '추천 결과' })).toBeNull()
   })
 })
-
-function composedResponse(): RecommendationResponse {
-  return {
-    requirement: {
-      features: ['static-frontend'],
-      file_storage_bytes: null,
-      database_size_bytes: null,
-      monthly_bandwidth_bytes: null,
-      monthly_budget_usd_cents: null,
-    },
-    roles: [],
-    composition: {
-      status: 'composed',
-      compatible: [],
-      unknown: [],
-      incompatible: [],
-      blocked_roles: [],
-      combination_count: 0,
-      unevaluated_features: [],
-    },
-    unevaluated_features: [],
-    plans: {},
-    sources: {},
-  }
-}

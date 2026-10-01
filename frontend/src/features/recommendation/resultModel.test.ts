@@ -22,6 +22,7 @@ import {
   formatLimit,
   formatSourceLink,
   planRows,
+  stackGroups,
   stackTitle,
 } from './resultModel.ts'
 
@@ -71,6 +72,61 @@ describe('byStatus', () => {
       return
     }
     expect(byStatus(role)).toEqual([])
+  })
+})
+
+describe('stackGroups', () => {
+  it('returns the compatible stack from fixture A', () => {
+    const groups = stackGroups(fixtureA.composition)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]?.status).toBe('compatible')
+    expect(groups[0]?.stacks).toHaveLength(1)
+    expect(groups[0]?.stacks[0]).toBe(fixtureA.composition.compatible[0])
+  })
+
+  it('returns the unknown stack from fixture F', () => {
+    const groups = stackGroups(fixtureF.composition)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]?.status).toBe('unknown')
+    expect(groups[0]?.stacks).toHaveLength(1)
+    expect(groups[0]?.stacks[0]).toBe(fixtureF.composition.unknown[0])
+  })
+
+  it('returns groups in evaluation status order', () => {
+    const groups = stackGroups(fixtureH.composition)
+    expect(groups.map((group) => group.status)).toEqual(['compatible', 'unknown', 'incompatible'])
+  })
+
+  it('keeps stack order and object references inside a group', () => {
+    const first = fixtureA.composition.compatible[0]
+    const second = fixtureD.composition.compatible[0]
+    expect(first).toBeDefined()
+    expect(second).toBeDefined()
+    if (first === undefined || second === undefined) {
+      return
+    }
+    const groups = stackGroups({
+      status: 'composed',
+      compatible: [first, second],
+      unknown: [],
+      incompatible: [],
+      blocked_roles: [],
+      combination_count: 2,
+      unevaluated_features: [],
+    })
+    expect(groups).toHaveLength(1)
+    expect(groups[0]?.stacks[0]).toBe(first)
+    expect(groups[0]?.stacks[1]).toBe(second)
+  })
+
+  it('omits empty status groups', () => {
+    const groups = stackGroups(fixtureA.composition)
+    expect(groups.map((group) => group.status)).toEqual(['compatible'])
+  })
+
+  it('returns no groups for a blocked composition without stacks', () => {
+    expect(fixtureB.composition.status).toBe('blocked')
+    expect(stackGroups(fixtureB.composition)).toEqual([])
   })
 })
 

@@ -3,6 +3,7 @@ import type {
   Assignment,
   Check,
   CheckOutcome,
+  Composition,
   EvaluationStatus,
   Limit,
   PlanBudgetCheck,
@@ -37,6 +38,27 @@ export function byStatus(role: RoleEvaluation): StatusGroup[] {
       return []
     }
     return [{ status, evaluations }]
+  })
+}
+
+export type StackGroup = {
+  status: EvaluationStatus
+  stacks: Stack[]
+}
+
+export function stackGroups(composition: Composition): StackGroup[] {
+  const stacksByStatus = {
+    compatible: composition.compatible,
+    unknown: composition.unknown,
+    incompatible: composition.incompatible,
+  } satisfies Record<EvaluationStatus, Stack[]>
+
+  return evaluationStatusValues.flatMap((status) => {
+    const stacks = stacksByStatus[status]
+    if (stacks === undefined || stacks.length === 0) {
+      return []
+    }
+    return [{ status, stacks }]
   })
 }
 

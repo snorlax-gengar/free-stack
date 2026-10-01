@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getHealth } from './api/client'
+import { RecommendationResult } from './features/recommendation/RecommendationResult.tsx'
 import { RequirementForm } from './features/requirement/RequirementForm.tsx'
 import { useRecommendationSubmit } from './features/requirement/useRecommendationSubmit.ts'
 import './App.css'
@@ -61,6 +62,9 @@ export default function App() {
           void submission.submit(request)
         }}
       />
+      {submission.state.status === 'success' ? (
+        <RecommendationResult response={submission.state.response} />
+      ) : null}
     </main>
   )
 }

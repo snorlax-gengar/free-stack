@@ -1365,3 +1365,80 @@ Frontend는 Backend가 정한 status, outcome, reason, budget, stack을 설명�
 - App, RequirementForm, `useRecommendationSubmit`, API client
 - Backend, OpenAPI, generated schema 생성 로직
 - 새 npm dependency
+
+## FREE-014 PR3-1-T1 stackGroups
+
+### Goal
+
+Composition의 Stack을 상태별로 묶는 selector를 추가한다. Result UI는 만들지 않는다.
+
+### Implemented
+
+`stackGroups(composition)`를 `resultModel.ts`에 추가했다. `evaluationStatusValues` 순서인 `compatible`, `unknown`, `incompatible`로 Composition의 세 배열을 읽고, 빈 배열은 그룹에서 뺀다. 그룹 안의 Stack은 원본 배열 순서와 원본 객체 reference를 유지한다. Stack을 정렬하거나 복제하지 않고, compatibility와 budget도 다시 계산하지 않는다.
+
+### Decisions
+
+- `byStatus()`를 generic selector로 바꾸지 않았다. role evaluation과 composition stack은 입력이 다르고, 기존 `byStatus` 테스트를 유지하기 위해서다.
+- Composition은 flat `stacks` 배열이 아니다. status별 배열이 이미 나뉘어 있으므로 `stackGroups`는 그 배열을 선언 순서로 꺼내기만 한다.
+- Fixture H와 I는 focused result-model unit test용이다. 전체 응답 상태가 서로 일관되지 않아서 UI fixture로 쓰지 않는다. fixture 데이터는 바꾸지 않았다.
+
+### Testing
+
+- `npm test` — 112 passed. `stackGroups` 테스트 6개를 포함해 기존 106개도 통과했다.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `git diff --check` — 통과. CRLF 경고만 있다.
+
+## FREE-014 PR3-1-T2 Recommendation Result UI
+
+### Goal
+
+`stackGroups()`를 쓰는 Recommendation Result 화면을 컴포넌트로 만든다. App에는 연결하지 않는다.
+
+### Implemented
+
+- `RecommendationResult`는 `RecommendationResponse`를 받아 결과 영역, 요구사항 요약, composition status를 그린다. 제목 `추천 결과`는 mount 때 한 번 focus한다.
+- `composed`이면 `CompositionResult`를 그린다. 그 외 status는 `compositionStatusLabels` 한 줄만 보여 준다.
+- `CompositionResult`는 `composition`과 `plans`만 받는다. stack 목록은 `stackGroups()`, 제목은 `stackTitle()`, plan 행은 `planRows()`, 예산은 `describeStackBudget()`를 사용한다.
+- 요구사항 예산은 `formatBudgetLimit()`, 수량은 값이 있을 때만 `formatBytes()`다. `knownTotalText`가 null이면 합계 문구를 그리지 않는다.
+- `unevaluated_features`가 있으면 기능 이름만 안내한다.
+
+### Decisions
+
+- Plan 묶음과 budget 판단은 UI에서 다시 하지 않는다.
+- Stack key는 `stack.key`다. 화면에서 `sort()`하지 않는다.
+- App 연결은 T3로 남긴다. 이 컴포넌트는 아직 App에 나타나지 않는다.
+
+### Testing
+
+- `RecommendationResult.test.tsx`에서 fixture A, F, G, D, B, C, E를 props로 렌더한다.
+- `npm test` — 120 passed.
+- `npm run build` — 통과. App이 Result를 import하지 않아 production bundle 구성은 이전과 같다.
+- `npm run lint` — 통과.
+- `git diff --check` — 통과. CRLF 경고만 있다.
+
+## FREE-014 PR3-1-T3 App Connection
+
+### Goal
+
+성공한 추천 요청의 response를 Recommendation Result 화면에 연결한다.
+
+### Implemented
+
+App은 `submission.state.status === 'success'`일 때만 `RecommendationResult`에 `submission.state.response`를 넘긴다. 별도 표시 상태는 만들지 않았다. App은 stack, plan, budget을 해석하지 않는다. Result는 Requirement Form 다음에 온다. 기존 성공 문구 `추천 결과를 받았습니다.`는 그대로 둔다.
+
+### Decisions
+
+- 표시 조건은 PR1 submit state machine을 따른다. response 존재 여부로 판단하지 않는다.
+- success 분기에서 TypeScript narrowing으로 response를 전달한다. type assertion은 쓰지 않는다.
+- 성공 문구와 결과 제목이 함께 보이는 정리는 PR3-4로 남긴다.
+- Requirement Form, API client, backend는 수정하지 않는다.
+
+### Testing
+
+- App 성공 테스트는 fixture A를 반환하고 `추천 결과`와 `Supabase Platform`이 보이는지 확인한다.
+- health, submitting, error 테스트는 유지한다.
+- `npm test` — 120 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `git diff --check` — 통과. CRLF 경고만 있다.

@@ -1150,3 +1150,128 @@ FREE-013 Requirement Form이 사용할 OpenAPI 타입, API client, error model, 
 ### Out of Scope
 
 Requirement Form, Recommendation UI, routing, Backend API, pricing seed, label placeholder.
+
+## FREE-013 Requirement Form
+
+### Goal
+
+사용자 입력을 Form State로 두고, `RecommendationRequest`로 바꾼 뒤 `postRecommendation()`까지 호출한다. 추천 결과를 해석하거나 화면에 그리지 않는다.
+
+### Scope
+
+단일 `App` 화면에 Requirement Form을 연결했다. Router, 상태관리 라이브러리, UI 라이브러리, `user-event`, `jest-dom`은 추가하지 않았다. Backend, API 계약, Recommendation Engine, Composition은 변경하지 않았다. 결과 화면, Stack, Role, Plan, Source, Caveat, ranking, sorting, filtering은 구현하지 않았다.
+
+FREE-012는 별도 commit이 되어 있지 않다. HEAD는 `37437e5 fix: align recommendation api contract`이고, FREE-012 파일은 작업 트리에 그대로 있다. 그 파일을 되돌리지 않고 그 위에 폼을 올렸다.
+
+### UX decisions
+
+- Router는 아직 도입하지 않는다.
+- 예산 입력은 FREE-013에 포함한다.
+- `backend-server`와 `backend-functions`는 배타적이지 않다. 둘 다 checkbox다.
+- Feature 표시 문구는 `src/labels/features.ts`에만 둔다. Feature 값의 순서는 `schema.gen.ts`의 `featureValues`다. Label 파일에 Feature 배열을 다시 만들지 않는다.
+- 파일 저장 용량 preset은 데이터베이스와 같이 `100 MB`, `500 MB`, `1 GB`, `5 GB`다. 명세의 파일 용량 구간은 `...`로만 적혀 있었다.
+- 성공 시에는 `추천 결과를 받았습니다.`만 보인다. 응답 JSON은 화면에 없다.
+- 기존 health 상태는 유지한다.
+
+### Form State / API DTO boundary
+
+`useReducer`의 `RequirementFormValues`는 문자열 amount를 유지한다. `""`와 `"0"`, 입력 중인 `"1."`을 구분하기 위해서다. 숫자 변환은 `toRecommendationRequest()`에서만 한다. 이 함수는 순수 함수이고, 추천 판단, capability, budget 판단, limit 비교, compatibility, composition, ranking을 하지 않는다.
+
+Feature를 해제해도 quantity 문자열은 남긴다. 다시 선택하면 그 값이 보인다. submit 때는 선택되지 않은 Feature의 quantity를 검증하지 않고 `null`로 보낸다. Feature를 자동으로 추가하지 않는다.
+
+요청은 항상 다섯 필드다. `features`, `file_storage_bytes`, `database_size_bytes`, `monthly_bandwidth_bytes`, `monthly_budget_usd_cents`. 빈 문자열은 보내지 않는다. 값이 없으면 `null`이다. `features` 순서는 클릭 순서가 아니라 `featureValues` 선언 순서다.
+
+byte 변환은 `toBytes()`, 예산 변환은 `wholeUsdToCents()`를 쓴다. 단위 변환을 새로 만들지 않았다.
+
+### null vs 0 semantics
+
+- 빈 문자열은 조건 없음이다. quantity와 budget 모두 `null`이다.
+- budget `"0"`은 월 `$0` 상한이다. API에는 `0` cents다.
+- quantity `"0"`은 오류다. `null`로 바꾸지 않는다.
+- 숨겨진 quantity는 입력값이 있어도 `null`이고 오류가 아니다.
+
+### quantity behavior
+
+선택된 Feature에 연결된 quantity만 검증하고 전송한다. 대역폭은 Feature에 묶이지 않아서 항상 표시하고, 값이 있으면 변환한다.
+
+`trim()` 후 `^[0-9]+$`만 정수로 본다. `"-1"`, `"1.5"`, `"abc"`, `"1e3"`은 `not-integer`다. `"0"`은 `not-positive`다. `toBytes()`가 거절하면 `too-large`다.
+
+- `500 MB` → `500000000`
+- `1 GB` → `1000000000`
+- `10 GB` → `10000000000`
+
+### budget behavior
+
+정수 달러만 받는다. `$4.99`는 지원하지 않는다.
+
+- `""` → `null`
+- `"0"` → `0`
+- `"5"` → `500`
+- `"10"` → `1000`
+
+예산의 형식 오류 문구는 수량 문구와 다르다. `0`이 유효하므로 `0 이상의 정수로 입력해 주세요.`를 쓴다.
+
+### error handling
+
+로컬 검증 코드는 `required-feature`, `not-integer`, `not-positive`, `too-large`다. 서버 `message`는 UI에 노출하지 않는다. 분기는 `ApiError.kind`와 `ApiError.code`만 사용한다. 422를 특정 필드에 연결하지 않는다.
+
+- `INVALID_REQUIREMENT` → 선택한 기능과 입력값의 조합을 처리할 수 없습니다. 입력 내용을 확인해 주세요.
+- `REQUEST_VALIDATION_FAILED` → 요청을 처리할 수 없습니다. 입력 내용을 확인한 뒤 다시 시도해 주세요.
+- `INTERNAL_ERROR`와 그 외 5xx → 일시적인 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
+- `network` → 서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.
+- `unexpected-response`, 알 수 없는 code, 일반 `Error` → 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.
+
+`AbortError`는 화면 오류가 아니다. hook이 `AbortController`를 소유하고, unmount 시 abort한다. submitting 중 추가 submit은 handler에서 무시한다. 버튼은 `disabled`가 아니라 `aria-disabled="true"`다.
+
+### accessibility
+
+`fieldset` / `legend` / `label` / `input` / `select` / `button`을 사용한다. 기능 그룹 legend는 `필요한 기능`이다. checkbox의 접근 가능한 이름은 기능 제목만이고, 설명은 `aria-describedby`다. 수량 input은 `type="text"`와 `inputMode="numeric"`이다. `type="number"`는 쓰지 않는다.
+
+필드 오류는 `aria-invalid`와 `aria-describedby`다. 색만으로 구분하지 않도록 오류 앞에 `오류:`를 붙인다. 서버 오류는 `role="alert"`다. 진행과 성공은 `role="status"`다. 제출 버튼은 `aria-disabled`와 `aria-busy`다. 형식 오류가 있으면 첫 오류 입력으로 focus를 옮긴다. `html lang`은 `ko`다.
+
+CSS Modules, mobile first, 본문 최대 너비 640px, 1열, 터치 대상 약 44px, input 글자 크기 16px, focus ring을 유지한다.
+
+### test results
+
+- `npm test` — 65 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.
+
+### manual E2E result
+
+- `static-frontend` + `database` + `500 MB`: Backend 응답을 받았고, 화면에는 `추천 결과를 받았습니다.`만 표시됐다.
+- `ai-api`: HTTP 200, composition `no-roles`. 화면도 성공 상태다.
+- Backend를 끈 뒤 제출: `서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.` (`role="alert"`). 확인 후 Backend를 다시 켰다.
+- 키보드: 컨트롤은 모두 네이티브 checkbox, text input, select, button이고 `tabIndex`는 0이다. 자동화 도구의 Tab/Space는 trusted event가 아니라서 브라우저 기본 동작(포커스 이동, checkbox 토글)을 일으키지 않았다. 마우스 클릭, preset, 제출은 확인했다.
+
+### known limitations
+
+- 추천 결과 UI는 다음 task다.
+- Router는 없다.
+- 예산은 정수 달러만 받는다.
+- 422는 필드 경로가 없으므로 서버 오류를 입력칸에 붙이지 않는다.
+- Backend business logic을 Frontend에 복제하지 않았다.
+- Feature를 입력값에 맞춰 자동으로 추가하지 않는다.
+
+### UI
+
+첫 화면을 동작 확인용 폼에서 MVP 소개 화면으로 바꿨다. API 요청, reducer, validation, `null`/`0` 의미는 그대로다.
+
+- Header에 서비스 이름과 `무료/저비용 사이드프로젝트 인프라 추천`을 둔다. health 문장은 헤더의 작은 상태 정보로 남긴다.
+- 소개 문구는 `내 프로젝트에 필요한 기능을 선택하세요.`와 `조건을 입력하면 적합한 인프라 조합을 찾아드립니다.`다.
+- 본문은 최대 720px이다. 섹션은 `1. 필요한 기능`, `2. 사용량 조건`, `월 예산 (USD)`다. 예산 legend 앞의 `3. `는 `aria-hidden`이라 입력의 accessible name은 `월 예산 (USD)`다.
+- Feature는 카드다. 모바일은 1열, 640px 이상은 2열이다. checkbox는 native이고, 이름은 기능 제목만이다. 설명은 `aria-describedby`다.
+- 파일 저장과 데이터베이스 수량은 기능 목록 안이 아니라 사용량 섹션에 표시한다. 선택 해제 시 값은 state에 남고, 다시 선택하면 보인다. 요청에는 여전히 선택된 Feature의 수량만 들어간다.
+- CTA는 `무료 스택 추천받기`다. 진행 문구 `추천 받는 중…`과 성공 문구 `추천 결과를 받았습니다.`는 유지한다. 버튼은 `aria-disabled`만 쓰고 HTML `disabled`는 쓰지 않는다.
+- 페이지 배경, 카드, 입력, preset, 오류, 상태 문구는 CSS Modules와 `App.css`로 맞춘다. 새 dependency는 없다.
+
+확인:
+
+- `npm test` — 65 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.
+- 데스크톱 viewport 1920px에서 form 너비 688px, Feature grid `313px 313px`, horizontal overflow 없음.
+- 390px viewport에서 Feature grid는 1열이고 horizontal overflow 없음.
+- 빈 폼 제출, 500 MB, `ai-api`, Backend 종료, 키보드 Tab/Space는 이번 UI 확인에서 브라우저 클릭이 승인되지 않아 다시 누르지 못했다. 같은 동작은 단위 테스트와 직전 수동 확인에서 통과했다.

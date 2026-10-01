@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getHealth } from './api/client'
+import { RequirementForm } from './features/requirement/RequirementForm.tsx'
 import './App.css'
 
 type BackendStatus = 'checking' | 'ok' | 'failed'
@@ -39,9 +40,15 @@ export default function App() {
   }, [])
 
   return (
-    <main>
-      <h1>FreeStack</h1>
-      <p>{statusLabel(status)}</p>
+    <main className="shell">
+      <header className="header">
+        <div>
+          <h1 className="brand">FreeStack</h1>
+          <p className="tagline">무료/저비용 사이드프로젝트 인프라 추천</p>
+        </div>
+        <p className="health">{statusLabel(status)}</p>
+      </header>
+      <RequirementForm />
     </main>
   )
 }

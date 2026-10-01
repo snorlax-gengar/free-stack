@@ -1,13 +1,15 @@
-import type { Composition, PlanDetail, RecommendationResponse } from '../../api/types.ts'
+import type { Composition, RecommendationResponse } from '../../api/types.ts'
 import { featureLabels } from '../../labels/features.ts'
 import { evaluationStatusLabels, labelOf, reasonCodeLabels } from '../../labels/recommendation.ts'
 import {
   describeStackBudget,
+  planLabel,
   planRows,
   stackGroups,
   stackTitle,
   type PlanRow,
 } from './resultModel.ts'
+import { StatusBadge } from './StatusBadge.tsx'
 import styles from './RecommendationResult.module.css'
 
 export type CompositionResultProps = {
@@ -20,7 +22,7 @@ export function CompositionResult({ composition, plans }: CompositionResultProps
   const stackCount = groups.reduce((count, group) => count + group.stacks.length, 0)
 
   return (
-    <div className={styles.composition}>
+    <div className={styles.composition} role="region" aria-label="구성">
       <p className={styles.summary}>
         조합 {stackCount}개를 구성했습니다. 표시 순서는 순위가 아닙니다.
       </p>
@@ -34,7 +36,7 @@ export function CompositionResult({ composition, plans }: CompositionResultProps
             return (
               <article key={stack.key} className={styles.stack}>
                 <h4 className={styles.stackTitle}>{stackTitle(stack, plans)}</h4>
-                <p className={styles.status}>{labelOf(stack.status, evaluationStatusLabels)}</p>
+                <StatusBadge status={stack.status} />
                 <ul className={styles.plans} aria-label="플랜">
                   {planRows(stack, plans).map((row) => (
                     <PlanRowView key={row.planId} row={row} />
@@ -57,24 +59,17 @@ export function CompositionResult({ composition, plans }: CompositionResultProps
 }
 
 function PlanRowView({ row }: { row: PlanRow }) {
-  const features = row.assignments.map((assignment) => featureLabels[assignment.feature]).join(' · ')
   return (
     <li className={styles.plan}>
-      <PlanIdentity detail={row.detail} planId={row.planId} />
-      <p className={styles.features}>{features}</p>
+      <p>{planLabel(row.detail, row.planId)}</p>
+      <ul className={styles.assignments} aria-label="배정된 기능">
+        {row.assignments.map((assignment) => (
+          <li key={assignment.feature} className={styles.assignment}>
+            <span>{featureLabels[assignment.feature]}</span>
+            <StatusBadge status={assignment.status} />
+          </li>
+        ))}
+      </ul>
     </li>
-  )
-}
-
-function PlanIdentity({ detail, planId }: { detail: PlanDetail | null; planId: string }) {
-  if (detail === null) {
-    return <p className={styles.planId}>{planId}</p>
-  }
-  return (
-    <>
-      <p>{detail.provider.name}</p>
-      <p>{detail.service.name}</p>
-      <p>{detail.plan.name}</p>
-    </>
   )
 }

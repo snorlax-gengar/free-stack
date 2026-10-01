@@ -1442,3 +1442,38 @@ App은 `submission.state.status === 'success'`일 때만 `RecommendationResult`�
 - `npm run build` — 통과.
 - `npm run lint` — 통과.
 - `git diff --check` — 통과. CRLF 경고만 있다.
+
+## FREE-014 PR3-2 Role / Plan Result UI
+
+### Goal
+
+추천 결과 화면에 Stack의 Feature 배정 상태와 Role별 후보 평가를 추가한다. Result model selector를 재사용하고, UI에서 평가를 다시 계산하지 않는다.
+
+### Implemented
+
+- `planLabel(detail, planId)`와 `describeCheckDetail(check)`를 `resultModel.ts`에 추가했다. 기존 selector는 바꾸지 않았다.
+- `StatusBadge`는 `evaluationStatusLabels` 텍스트와 `data-status`를 보여 준다.
+- `CompositionResult`의 Stack 상태는 `StatusBadge`다. Plan 행은 `planLabel` 한 줄이고, `row.assignments` 순서대로 기능 이름과 배정 status를 보여 준다.
+- `RoleEvaluations`는 `roles.length > 0`일 때 composition 다음에 렌더한다. 표시 조건은 `composition.status`가 아니다. 각 Role은 접힌 `<details>`이고, summary는 `byStatus()` 개수다. 후보 Plan과 check는 `planLabel`, `StatusBadge`, `evaluationChecks`, `describeCheckDetail`로 표시한다. `CheckScope` 문구는 이 컴포넌트 안에 둔다.
+- Fixture J는 `{"features":["static-frontend","file-uploads"]}`의 실제 API 응답이다. composed이고 Stack 2개이며, Cloudflare Pages가 공유되고 file-uploads 배정 Plan이 Stack마다 다르다.
+
+### Decisions
+
+- Role 평가는 Stack 카드와 분리했다. Stack은 배정된 기능과 그 상태를 보여주고, Role 영역은 후보 Plan의 check를 보여 준다. 두 결과를 한 카드에서 섞지 않는다.
+- 같은 Plan이 여러 Feature를 담당하면 하나의 Plan 행 안에 Feature별 status를 둔다. assignment 순서는 API 순서를 유지한다.
+- `describeCheckDetail`은 한도와 요금을 문장으로 바꿀 뿐 outcome, reason, 한도, 가격을 다시 판단하지 않는다. `pricing === null`은 금액으로 만들지 않는다.
+- `<details>`는 모두 접힌 상태다. 상태별 자동 펼침은 하지 않는다.
+- 구성 영역은 `role="region"` `aria-label="구성"`이다. Role 그룹 제목과 같은 문구가 생겨도 구성 제목을 그 영역 안에서 찾는다.
+
+### Deferred
+
+- PR3-3: Plan Detail dialog, Sources, Caveats, source link
+- PR3-4: responsive, a11y 전체 점검, 상태별 details 자동 펼침, blocked / no-roles / too-many 전용 UX, Form 성공 문구 정리
+
+### Testing
+
+- `npm test` — 128 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.
+- `git diff --check` — 통과. CRLF 경고만 있다.

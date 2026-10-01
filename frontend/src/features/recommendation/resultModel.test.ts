@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Limit, PlanEvaluation, RecommendationResponse, Stack } from '../../api/types.ts'
+import type { Limit, PlanBudgetCheck, PlanEvaluation, RecommendationResponse, Stack } from '../../api/types.ts'
 import { assertNever } from '../../lib/assertNever.ts'
 import {
   fixtureA,
@@ -17,10 +17,12 @@ import {
   byStatus,
   describeStackBudget,
   evaluationChecks,
+  describeCheckDetail,
   formatBudgetLimit,
   formatCheckedAt,
   formatLimit,
   formatSourceLink,
+  planLabel,
   planRows,
   stackGroups,
   stackTitle,
@@ -127,6 +129,62 @@ describe('stackGroups', () => {
   it('returns no groups for a blocked composition without stacks', () => {
     expect(fixtureB.composition.status).toBe('blocked')
     expect(stackGroups(fixtureB.composition)).toEqual([])
+  })
+})
+
+describe('planLabel', () => {
+  it('joins provider, service, and plan names', () => {
+    const detail = fixtureA.plans['supabase-platform-free']
+    expect(detail).toBeDefined()
+    if (detail === undefined) {
+      return
+    }
+    expect(planLabel(detail, 'supabase-platform-free')).toBe('Supabase · Platform · Free')
+    expect(planLabel(null, 'missing-plan')).toBe('missing-plan')
+  })
+})
+
+describe('describeCheckDetail', () => {
+  it('formats a quantity limit without recomputing it', () => {
+    const role = fixtureG.roles.find((item) => item.role === 'file-uploads')
+    const check = role?.incompatible[0]?.global_quantity_checks.find(
+      (item) => item.reason_code === 'exceeds-limit',
+    )
+    expect(describeCheckDetail(check ?? { reason_code: 'capability-provided', outcome: 'satisfied' })).toBe(
+      '대역폭 월 5 GB',
+    )
+  })
+
+  it('lists other-period limits and leaves an empty quantity check blank', () => {
+    const mismatch = fixtureI.roles[0]?.unknown[0]?.global_quantity_checks[0]
+    expect(mismatch).toBeDefined()
+    if (mismatch !== undefined) {
+      expect(describeCheckDetail(mismatch)).toBe('대역폭 일 1 GB')
+    }
+    const pages = fixtureG.roles.find((item) => item.role === 'static-frontend')
+    const missing = pages?.unknown[0]?.global_quantity_checks.find(
+      (item) => item.reason_code === 'limit-not-found',
+    )
+    expect(describeCheckDetail(missing ?? { reason_code: 'capability-provided', outcome: 'satisfied' })).toBeNull()
+  })
+
+  it('formats a priced budget and does not turn missing pricing into a price', () => {
+    const priced = {
+      reason_code: 'within-budget',
+      outcome: 'satisfied',
+      pricing: {
+        plan_id: 'priced-plan',
+        monthly_base_fee_usd_cents: 500,
+        exceed_behaviors: [],
+        source_id: 'source',
+      },
+    } satisfies PlanBudgetCheck
+    expect(describeCheckDetail(priced)).toBe('월 기본 요금 $5')
+
+    const missing = fixtureF.roles[0]?.unknown[0]?.budget_check
+    expect(missing?.pricing).toBeNull()
+    expect(describeCheckDetail(missing ?? priced)).toBeNull()
+    expect(describeCheckDetail(fixtureA.roles[0]?.compatible[0]?.capability_check ?? priced)).toBeNull()
   })
 })
 

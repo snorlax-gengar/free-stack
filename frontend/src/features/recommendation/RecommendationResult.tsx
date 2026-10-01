@@ -6,6 +6,7 @@ import { formatBytes } from '../../lib/units.ts'
 import { assertNever } from '../../lib/assertNever.ts'
 import { formatBudgetLimit } from './resultModel.ts'
 import { CompositionResult } from './CompositionResult.tsx'
+import { RoleEvaluations } from './RoleEvaluations.tsx'
 import styles from './RecommendationResult.module.css'
 
 export type RecommendationResultProps = {
@@ -38,6 +39,9 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
         <p>{formatBudgetLimit(requirement.monthly_budget_usd_cents)}</p>
       </div>
       {renderComposition(response)}
+      {response.roles.length > 0 ? (
+        <RoleEvaluations roles={response.roles} plans={response.plans} />
+      ) : null}
     </section>
   )
 }

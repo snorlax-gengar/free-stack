@@ -1894,3 +1894,343 @@ export const fixtureI = {
     }
   }
 } satisfies RecommendationResponse
+
+
+// Fixture J. Live response for {"features":["static-frontend","file-uploads"]}.
+// composed, two stacks. Cloudflare Pages is shared. file-uploads is assigned to a different plan in each stack.
+export const fixtureJ = {
+  "requirement": {
+    "features": [
+      "static-frontend",
+      "file-uploads"
+    ],
+    "file_storage_bytes": null,
+    "database_size_bytes": null,
+    "monthly_bandwidth_bytes": null,
+    "monthly_budget_usd_cents": null
+  },
+  "roles": [
+    {
+      "role": "static-frontend",
+      "compatible": [
+        {
+          "plan_id": "cloudflare-pages-free",
+          "role": "static-frontend",
+          "status": "compatible",
+          "capability_check": {
+            "reason_code": "capability-provided",
+            "outcome": "satisfied"
+          },
+          "quantity_checks": [],
+          "global_quantity_checks": [],
+          "budget_check": null
+        }
+      ],
+      "unknown": [],
+      "incompatible": []
+    },
+    {
+      "role": "file-uploads",
+      "compatible": [
+        {
+          "plan_id": "cloudflare-r2-free",
+          "role": "file-uploads",
+          "status": "compatible",
+          "capability_check": {
+            "reason_code": "capability-provided",
+            "outcome": "satisfied"
+          },
+          "quantity_checks": [],
+          "global_quantity_checks": [],
+          "budget_check": null
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "role": "file-uploads",
+          "status": "compatible",
+          "capability_check": {
+            "reason_code": "capability-provided",
+            "outcome": "satisfied"
+          },
+          "quantity_checks": [],
+          "global_quantity_checks": [],
+          "budget_check": null
+        }
+      ],
+      "unknown": [],
+      "incompatible": []
+    }
+  ],
+  "composition": {
+    "status": "composed",
+    "compatible": [
+      {
+        "key": "file-uploads=cloudflare-r2-free;static-frontend=cloudflare-pages-free",
+        "assignments": [
+          {
+            "feature": "file-uploads",
+            "plan_id": "cloudflare-r2-free",
+            "status": "compatible"
+          },
+          {
+            "feature": "static-frontend",
+            "plan_id": "cloudflare-pages-free",
+            "status": "compatible"
+          }
+        ],
+        "plan_ids": [
+          "cloudflare-pages-free",
+          "cloudflare-r2-free"
+        ],
+        "status": "compatible",
+        "budget_check": null
+      },
+      {
+        "key": "file-uploads=supabase-platform-free;static-frontend=cloudflare-pages-free",
+        "assignments": [
+          {
+            "feature": "file-uploads",
+            "plan_id": "supabase-platform-free",
+            "status": "compatible"
+          },
+          {
+            "feature": "static-frontend",
+            "plan_id": "cloudflare-pages-free",
+            "status": "compatible"
+          }
+        ],
+        "plan_ids": [
+          "cloudflare-pages-free",
+          "supabase-platform-free"
+        ],
+        "status": "compatible",
+        "budget_check": null
+      }
+    ],
+    "unknown": [],
+    "incompatible": [],
+    "blocked_roles": [],
+    "combination_count": 2,
+    "unevaluated_features": []
+  },
+  "unevaluated_features": [],
+  "plans": {
+    "cloudflare-pages-free": {
+      "plan": {
+        "id": "cloudflare-pages-free",
+        "service_id": "cloudflare-pages",
+        "name": "Free",
+        "slug": "free",
+        "description": "Free Cloudflare Pages plan.",
+        "capabilities": [
+          "static-hosting"
+        ]
+      },
+      "service": {
+        "id": "cloudflare-pages",
+        "provider_id": "cloudflare",
+        "name": "Pages",
+        "slug": "pages",
+        "description": "Static site hosting."
+      },
+      "provider": {
+        "id": "cloudflare",
+        "name": "Cloudflare",
+        "slug": "cloudflare",
+        "description": "Edge network and developer platform."
+      },
+      "pricing": null,
+      "caveats": [
+        {
+          "plan_id": "cloudflare-pages-free",
+          "statement": "The Free plan includes 500 builds per month.",
+          "source_id": "cloudflare-pages-limits"
+        },
+        {
+          "plan_id": "cloudflare-pages-free",
+          "statement": "The Free plan allows one build at a time.",
+          "source_id": "cloudflare-pages-limits"
+        },
+        {
+          "plan_id": "cloudflare-pages-free",
+          "statement": "Builds time out after 20 minutes.",
+          "source_id": "cloudflare-pages-limits"
+        },
+        {
+          "plan_id": "cloudflare-pages-free",
+          "statement": "A Free plan site can contain up to 20,000 files.",
+          "source_id": "cloudflare-pages-limits"
+        },
+        {
+          "plan_id": "cloudflare-pages-free",
+          "statement": "A single Pages asset can be at most 25 MiB.",
+          "source_id": "cloudflare-pages-limits"
+        },
+        {
+          "plan_id": "cloudflare-pages-free",
+          "statement": "Requests to Pages Functions count toward the Workers plan quota.",
+          "source_id": "cloudflare-pages-limits"
+        }
+      ],
+      "sources": [
+        {
+          "id": "cloudflare-pages-limits",
+          "url": "https://developers.cloudflare.com/pages/platform/limits/",
+          "checked_at": "2026-09-30",
+          "notes": "Official Cloudflare Pages limits."
+        }
+      ]
+    },
+    "cloudflare-r2-free": {
+      "plan": {
+        "id": "cloudflare-r2-free",
+        "service_id": "cloudflare-r2",
+        "name": "Free",
+        "slug": "free",
+        "description": "Free Cloudflare R2 allowance.",
+        "capabilities": [
+          "file-storage"
+        ]
+      },
+      "service": {
+        "id": "cloudflare-r2",
+        "provider_id": "cloudflare",
+        "name": "R2",
+        "slug": "r2",
+        "description": "Object storage."
+      },
+      "provider": {
+        "id": "cloudflare",
+        "name": "Cloudflare",
+        "slug": "cloudflare",
+        "description": "Edge network and developer platform."
+      },
+      "pricing": null,
+      "caveats": [
+        {
+          "plan_id": "cloudflare-r2-free",
+          "statement": "The free tier includes 1 million Class A operations per month.",
+          "source_id": "cloudflare-r2-pricing"
+        },
+        {
+          "plan_id": "cloudflare-r2-free",
+          "statement": "The free tier includes 10 million Class B operations per month.",
+          "source_id": "cloudflare-r2-pricing"
+        },
+        {
+          "plan_id": "cloudflare-r2-free",
+          "statement": "The free tier applies only to Standard storage, and usage beyond the included amount is billed.",
+          "source_id": "cloudflare-r2-pricing"
+        }
+      ],
+      "sources": [
+        {
+          "id": "cloudflare-r2-pricing",
+          "url": "https://developers.cloudflare.com/r2/pricing/",
+          "checked_at": "2026-09-30",
+          "notes": "Official Cloudflare R2 pricing."
+        }
+      ]
+    },
+    "supabase-platform-free": {
+      "plan": {
+        "id": "supabase-platform-free",
+        "service_id": "supabase-platform",
+        "name": "Free",
+        "slug": "free",
+        "description": "Free Supabase plan.",
+        "capabilities": [
+          "serverless-functions",
+          "database",
+          "file-storage",
+          "authentication",
+          "realtime"
+        ]
+      },
+      "service": {
+        "id": "supabase-platform",
+        "provider_id": "supabase",
+        "name": "Platform",
+        "slug": "platform",
+        "description": "Database, auth, storage, and related backend services."
+      },
+      "provider": {
+        "id": "supabase",
+        "name": "Supabase",
+        "slug": "supabase",
+        "description": "Hosted Postgres and application backend platform."
+      },
+      "pricing": null,
+      "caveats": [
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The Free plan includes two projects.",
+          "source_id": "supabase-billing"
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The 500 MB database size quota applies per project.",
+          "source_id": "supabase-billing"
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The 1 GB storage quota applies per organization.",
+          "source_id": "supabase-billing"
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The 5 GB egress quota applies per organization.",
+          "source_id": "supabase-billing"
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The Free plan includes 50,000 monthly active users.",
+          "source_id": "supabase-billing"
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The Free plan includes 500,000 Edge Function invocations.",
+          "source_id": "supabase-billing"
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The Free plan includes 2,000,000 Realtime messages.",
+          "source_id": "supabase-billing"
+        },
+        {
+          "plan_id": "supabase-platform-free",
+          "statement": "The Free plan includes 200 Realtime peak connections.",
+          "source_id": "supabase-billing"
+        }
+      ],
+      "sources": [
+        {
+          "id": "supabase-billing",
+          "url": "https://supabase.com/docs/guides/platform/billing-on-supabase",
+          "checked_at": "2026-09-30",
+          "notes": "Official Supabase billing documentation."
+        }
+      ]
+    }
+  },
+  "sources": {
+    "cloudflare-pages-limits": {
+      "id": "cloudflare-pages-limits",
+      "url": "https://developers.cloudflare.com/pages/platform/limits/",
+      "checked_at": "2026-09-30",
+      "notes": "Official Cloudflare Pages limits."
+    },
+    "cloudflare-r2-pricing": {
+      "id": "cloudflare-r2-pricing",
+      "url": "https://developers.cloudflare.com/r2/pricing/",
+      "checked_at": "2026-09-30",
+      "notes": "Official Cloudflare R2 pricing."
+    },
+    "supabase-billing": {
+      "id": "supabase-billing",
+      "url": "https://supabase.com/docs/guides/platform/billing-on-supabase",
+      "checked_at": "2026-09-30",
+      "notes": "Official Supabase billing documentation."
+    }
+  }
+} satisfies RecommendationResponse

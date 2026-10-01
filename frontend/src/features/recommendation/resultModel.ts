@@ -15,7 +15,7 @@ import type {
   Stack,
   StackBudgetCheck,
 } from '../../api/types.ts'
-import { limitPeriodLabels } from '../../labels/recommendation.ts'
+import { limitMetricLabels, limitPeriodLabels } from '../../labels/recommendation.ts'
 import { assertNever } from '../../lib/assertNever.ts'
 import { formatUsdCents } from '../../lib/money.ts'
 import { formatBytes } from '../../lib/units.ts'
@@ -74,6 +74,42 @@ export function planRows(stack: Stack, plans: Readonly<Record<string, PlanDetail
     detail: plans[planId] ?? null,
     assignments: stack.assignments.filter((assignment) => assignment.plan_id === planId),
   }))
+}
+
+export function planLabel(detail: PlanDetail | null, planId: string): string {
+  if (detail === null) {
+    return planId
+  }
+  return `${detail.provider.name} · ${detail.service.name} · ${detail.plan.name}`
+}
+
+export function describeCheckDetail(check: Check | QuantityCheck | PlanBudgetCheck): string | null {
+  if (isQuantityCheck(check)) {
+    if (check.limit !== null) {
+      return `${limitMetricLabels[check.limit.metric]} ${formatLimit(check.limit)}`
+    }
+    const [first] = check.other_period_limits
+    if (first === undefined) {
+      return null
+    }
+    const values = check.other_period_limits.map((limit) => formatLimit(limit)).join(', ')
+    return `${limitMetricLabels[first.metric]} ${values}`
+  }
+  if (isPlanBudgetCheck(check)) {
+    if (check.pricing === null) {
+      return null
+    }
+    return `월 기본 요금 ${formatUsdCents(check.pricing.monthly_base_fee_usd_cents)}`
+  }
+  return null
+}
+
+function isQuantityCheck(check: Check | QuantityCheck | PlanBudgetCheck): check is QuantityCheck {
+  return 'other_period_limits' in check
+}
+
+function isPlanBudgetCheck(check: Check | QuantityCheck | PlanBudgetCheck): check is PlanBudgetCheck {
+  return 'pricing' in check
 }
 
 export function stackTitle(stack: Stack, plans: Readonly<Record<string, PlanDetail>>): string {

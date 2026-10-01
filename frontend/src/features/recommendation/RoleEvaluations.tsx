@@ -1,0 +1,93 @@
+import { useId } from 'react'
+import type { RecommendationResponse, RoleEvaluation } from '../../api/types.ts'
+import { featureLabels } from '../../labels/features.ts'
+import {
+  checkOutcomeLabels,
+  evaluationStatusLabels,
+  labelOf,
+  reasonCodeLabels,
+} from '../../labels/recommendation.ts'
+import {
+  byStatus,
+  describeCheckDetail,
+  evaluationChecks,
+  planLabel,
+  type CheckScope,
+  type EvaluationCheck,
+} from './resultModel.ts'
+import { StatusBadge } from './StatusBadge.tsx'
+import styles from './RecommendationResult.module.css'
+
+const scopeLabels = {
+  capability: '기능',
+  'role-quantity': '이 역할의 사용량',
+  'global-quantity': '공통 사용량',
+  budget: '예산',
+} satisfies Record<CheckScope, string>
+
+export type RoleEvaluationsProps = {
+  roles: RoleEvaluation[]
+  plans: RecommendationResponse['plans']
+}
+
+export function RoleEvaluations({ roles, plans }: RoleEvaluationsProps) {
+  const headingId = useId()
+
+  return (
+    <section className={styles.roles} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.groupTitle}>
+        역할별 후보 평가
+      </h3>
+      <p className={styles.summary}>충족·확인 필요·미충족은 순위가 아니라 평가 상태입니다.</p>
+      {roles.map((role) => {
+        const groups = byStatus(role)
+        return (
+          <details key={role.role} className={styles.role}>
+            <summary className={styles.roleSummary}>{roleSummary(role, groups)}</summary>
+            {groups.map((group) => (
+              <div key={group.status} className={styles.candidateGroup}>
+                <h4 className={styles.stackTitle}>
+                  {labelOf(group.status, evaluationStatusLabels)} ({group.evaluations.length})
+                </h4>
+                <ul className={styles.candidates}>
+                  {group.evaluations.map((evaluation) => (
+                    <li key={evaluation.plan_id} className={styles.candidate}>
+                      <p>{planLabel(plans[evaluation.plan_id] ?? null, evaluation.plan_id)}</p>
+                      <StatusBadge status={evaluation.status} />
+                      <ul className={styles.checks}>
+                        {evaluationChecks(evaluation).map((item, index) => (
+                          <li key={`${item.scope}-${index}`}>{formatCheck(item)}</li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </details>
+        )
+      })}
+    </section>
+  )
+}
+
+function roleSummary(
+  role: RoleEvaluation,
+  groups: ReturnType<typeof byStatus>,
+): string {
+  const name = featureLabels[role.role]
+  if (groups.length === 0) {
+    return `${name} — 평가된 후보가 없습니다`
+  }
+  const counts = groups
+    .map((group) => `${labelOf(group.status, evaluationStatusLabels)} ${group.evaluations.length}`)
+    .join(' · ')
+  return `${name} — ${counts}`
+}
+
+function formatCheck(item: EvaluationCheck): string {
+  const detail = describeCheckDetail(item.check)
+  const reason = labelOf(item.reasonCode, reasonCodeLabels)
+  const tail = detail === null ? reason : `${detail} · ${reason}`
+  return `${scopeLabels[item.scope]}: ${labelOf(item.outcome, checkOutcomeLabels)} — ${tail}`
+}

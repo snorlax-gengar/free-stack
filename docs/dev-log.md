@@ -1315,3 +1315,53 @@ onSubmit
 - `npm run build` — 통과.
 - `npm run lint` — 통과.
 - `uv run pytest` — 501 passed.
+
+## FREE-014 PR2 Recommendation Result Model
+
+### Goal
+
+Recommendation Result UI를 만들기 전에, Backend response를 화면에 옮길 작은 label, selector, formatter와 테스트 fixture를 둔다. 결과 화면은 만들지 않는다.
+
+### Implemented
+
+- `frontend/src/api/types.ts`에 generated schema alias를 추가했다. 새 DTO는 만들지 않았다.
+- `frontend/src/lib/assertNever.ts`
+- `frontend/src/labels/recommendation.ts` — EvaluationStatus, CheckOutcome, ReasonCode, BlockReason, CompositionStatus, LimitMetric, LimitPeriod, ExceedBehavior, CapabilityKey label과 `labelOf`
+- `frontend/src/features/recommendation/resultModel.ts` — `byStatus`, `planRows`, `stackTitle`, `evaluationChecks`, `formatLimit`, `describeStackBudget`, `formatBudgetLimit`, `formatCheckedAt`, `formatSourceLink`
+- `frontend/src/features/recommendation/fixtures/recommendationResponses.ts` — fixture A–I. 테스트 전용이다.
+
+### Decisions
+
+- Frontend does not recompute recommendation decisions.
+- Backend response is the source of truth.
+- Result model consists of small selectors/formatters rather than a large ViewModel.
+- Fixtures are test-only.
+- enum 값 목록은 generated schema를 다시 선언하지 않고 `satisfies Record<...>`로 label만 매핑한다.
+- 알 수 없는 runtime code는 `labelOf`가 원본 code를 반환한다. metric formatter의 빠진 분기는 `assertNever`다.
+- `outcome`은 API 값을 그대로 쓴다. reason code로 outcome을 다시 판단하지 않는다.
+- `value === null`인 Limit은 제한 없음이다. `0`은 0이다. Limit 객체가 없는 것과 unlimited를 같은 문자열로 만들지 않는다.
+- `pricing-not-found`이거나 가격이 있는 plan이 없으면 `knownTotalText`는 `null`이다. `known_total_usd_cents === 0`을 확정 금액 `$0`으로 바꾸지 않는다.
+- byte 표시는 `formatBytes`, 금액 표시는 `formatUsdCents`를 재사용한다.
+- `checked_at`은 `YYYY-MM-DD`만 `2026년 9월 30일`로 바꾸고, 그 외 문자열은 그대로 둔다. `Date`로 해석하지 않는다.
+- Fixture A, B, B2, C, D, F는 현재 seed의 API 응답이다. E, H, I는 synthetic이다. G는 seed 응답에 `limit-period-mismatch` check 하나를 추가했다. seed에는 그 요청의 period mismatch가 없다.
+
+### Frontend Responsibility
+
+Frontend는 Backend가 정한 status, outcome, reason, budget, stack을 설명하는 문자열과 조회 결과만 만든다. compatible 재판단, stack 재조합, 가격 합산, 한도 초과 재계산, ranking은 하지 않는다.
+
+### Testing
+
+- `npm test` — 106 passed.
+- `npm run build` — 통과. production bundle에 `too-many-fixture`가 없다.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.
+- `git diff --check` — 통과.
+
+### Out of Scope
+
+- Recommendation Result UI
+- Plan Detail dialog
+- CSS 변경
+- App, RequirementForm, `useRecommendationSubmit`, API client
+- Backend, OpenAPI, generated schema 생성 로직
+- 새 npm dependency

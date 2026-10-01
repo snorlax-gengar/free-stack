@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "api:gen": "node scripts/dump-openapi.mjs && npx --yes openapi-typescript@7.13.0 openapi.json --enum-values -o src/api/schema.gen.ts"
   },
   "dependencies": {
     "react": "^19.2.8",

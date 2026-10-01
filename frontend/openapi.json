@@ -1,0 +1,1056 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FreeStack",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recommendations": {
+      "post": {
+        "summary": "Create Recommendation",
+        "operationId": "create_recommendation_api_v1_recommendations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssignmentResponse": {
+        "properties": {
+          "feature": {
+            "$ref": "#/components/schemas/Feature"
+          },
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EvaluationStatus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "feature",
+          "plan_id",
+          "status"
+        ],
+        "title": "AssignmentResponse"
+      },
+      "BlockReason": {
+        "type": "string",
+        "enum": [
+          "no-candidates",
+          "all-incompatible"
+        ],
+        "title": "BlockReason",
+        "description": "Why one role cannot be assigned a plan.\n\n``no-candidates`` means the role has no evaluated plans.\n``all-incompatible`` means every evaluated plan for the role is incompatible.\nA plan that lacks the role capability is not an evaluated candidate."
+      },
+      "BlockedRoleResponse": {
+        "properties": {
+          "feature": {
+            "$ref": "#/components/schemas/Feature"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/BlockReason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "feature",
+          "reason"
+        ],
+        "title": "BlockedRoleResponse"
+      },
+      "CapabilityKey": {
+        "type": "string",
+        "enum": [
+          "static-hosting",
+          "server-compute",
+          "serverless-functions",
+          "database",
+          "file-storage",
+          "authentication",
+          "realtime",
+          "scheduled-jobs"
+        ],
+        "title": "CapabilityKey",
+        "description": "Fixed capability vocabulary. This is not a stored entity."
+      },
+      "CaveatResponse": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_id",
+          "statement",
+          "source_id"
+        ],
+        "title": "CaveatResponse"
+      },
+      "CheckOutcome": {
+        "type": "string",
+        "enum": [
+          "satisfied",
+          "violated",
+          "unknown"
+        ],
+        "title": "CheckOutcome",
+        "description": "Whether one need is met, unmet, or not decidable."
+      },
+      "CheckResponse": {
+        "properties": {
+          "reason_code": {
+            "$ref": "#/components/schemas/ReasonCode"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/CheckOutcome"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason_code",
+          "outcome"
+        ],
+        "title": "CheckResponse"
+      },
+      "CompositionResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CompositionStatus"
+          },
+          "compatible": {
+            "items": {
+              "$ref": "#/components/schemas/StackResponse"
+            },
+            "type": "array",
+            "title": "Compatible"
+          },
+          "unknown": {
+            "items": {
+              "$ref": "#/components/schemas/StackResponse"
+            },
+            "type": "array",
+            "title": "Unknown"
+          },
+          "incompatible": {
+            "items": {
+              "$ref": "#/components/schemas/StackResponse"
+            },
+            "type": "array",
+            "title": "Incompatible"
+          },
+          "blocked_roles": {
+            "items": {
+              "$ref": "#/components/schemas/BlockedRoleResponse"
+            },
+            "type": "array",
+            "title": "Blocked Roles"
+          },
+          "combination_count": {
+            "type": "integer",
+            "title": "Combination Count"
+          },
+          "unevaluated_features": {
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "type": "array",
+            "title": "Unevaluated Features"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "compatible",
+          "unknown",
+          "incompatible",
+          "blocked_roles",
+          "combination_count",
+          "unevaluated_features"
+        ],
+        "title": "CompositionResponse"
+      },
+      "CompositionStatus": {
+        "type": "string",
+        "enum": [
+          "composed",
+          "blocked",
+          "too-many-combinations",
+          "no-roles"
+        ],
+        "title": "CompositionStatus",
+        "description": "Whether composition produced stacks. This does not rank them."
+      },
+      "ErrorObject": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorObject",
+        "description": "Stable error code and message. This object has no diagnostic details."
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorObject"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "description": "HTTP body for a recommendation API error."
+      },
+      "EvaluationStatus": {
+        "type": "string",
+        "enum": [
+          "compatible",
+          "unknown",
+          "incompatible"
+        ],
+        "title": "EvaluationStatus",
+        "description": "Aggregated check status for one plan in one role.\n\n``compatible`` means the stated checks are not violated or unknown.\nIt does not rank plans or choose a winner."
+      },
+      "ExceedBehavior": {
+        "type": "string",
+        "enum": [
+          "charged",
+          "suspended",
+          "restricted"
+        ],
+        "title": "ExceedBehavior",
+        "description": "What can happen when included usage is exceeded.\n\nThis is a plan-level set, not a per-metric model."
+      },
+      "Feature": {
+        "type": "string",
+        "enum": [
+          "static-frontend",
+          "backend-server",
+          "backend-functions",
+          "database",
+          "file-uploads",
+          "authentication",
+          "realtime",
+          "scheduled-jobs",
+          "ai-api"
+        ],
+        "title": "Feature",
+        "description": "A project capability the user asked for.\n\nThis is not a catalog ``CapabilityKey``. Some features have no catalog\ncapability and stay unevaluated."
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "LimitMetric": {
+        "type": "string",
+        "enum": [
+          "file-storage-bytes",
+          "database-size-bytes",
+          "bandwidth-bytes",
+          "requests",
+          "build-seconds"
+        ],
+        "title": "LimitMetric",
+        "description": "What a limit measures. The value name includes the base unit."
+      },
+      "LimitPeriod": {
+        "type": "string",
+        "enum": [
+          "none",
+          "day",
+          "month"
+        ],
+        "title": "LimitPeriod",
+        "description": "The window a limit applies to."
+      },
+      "LimitResponse": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "metric": {
+            "$ref": "#/components/schemas/LimitMetric"
+          },
+          "period": {
+            "$ref": "#/components/schemas/LimitPeriod"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_id",
+          "metric",
+          "period",
+          "value",
+          "source_id"
+        ],
+        "title": "LimitResponse"
+      },
+      "PlanBudgetCheckResponse": {
+        "properties": {
+          "reason_code": {
+            "$ref": "#/components/schemas/ReasonCode"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/CheckOutcome"
+          },
+          "pricing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason_code",
+          "outcome",
+          "pricing"
+        ],
+        "title": "PlanBudgetCheckResponse"
+      },
+      "PlanDetailResponse": {
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/PlanResponse"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ServiceResponse"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderResponse"
+          },
+          "pricing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PricingResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "caveats": {
+            "items": {
+              "$ref": "#/components/schemas/CaveatResponse"
+            },
+            "type": "array",
+            "title": "Caveats"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceResponse"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan",
+          "service",
+          "provider",
+          "pricing",
+          "caveats",
+          "sources"
+        ],
+        "title": "PlanDetailResponse"
+      },
+      "PlanEvaluationResponse": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Feature"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EvaluationStatus"
+          },
+          "capability_check": {
+            "$ref": "#/components/schemas/CheckResponse"
+          },
+          "quantity_checks": {
+            "items": {
+              "$ref": "#/components/schemas/QuantityCheckResponse"
+            },
+            "type": "array",
+            "title": "Quantity Checks"
+          },
+          "global_quantity_checks": {
+            "items": {
+              "$ref": "#/components/schemas/QuantityCheckResponse"
+            },
+            "type": "array",
+            "title": "Global Quantity Checks"
+          },
+          "budget_check": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanBudgetCheckResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_id",
+          "role",
+          "status",
+          "capability_check",
+          "quantity_checks",
+          "global_quantity_checks",
+          "budget_check"
+        ],
+        "title": "PlanEvaluationResponse"
+      },
+      "PlanResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "service_id": {
+            "type": "string",
+            "title": "Service Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityKey"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "service_id",
+          "name",
+          "slug",
+          "description",
+          "capabilities"
+        ],
+        "title": "PlanResponse"
+      },
+      "PricingResponse": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "monthly_base_fee_usd_cents": {
+            "type": "integer",
+            "title": "Monthly Base Fee Usd Cents"
+          },
+          "exceed_behaviors": {
+            "items": {
+              "$ref": "#/components/schemas/ExceedBehavior"
+            },
+            "type": "array",
+            "title": "Exceed Behaviors"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_id",
+          "monthly_base_fee_usd_cents",
+          "exceed_behaviors",
+          "source_id"
+        ],
+        "title": "PricingResponse"
+      },
+      "ProviderResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "description"
+        ],
+        "title": "ProviderResponse"
+      },
+      "QuantityCheckResponse": {
+        "properties": {
+          "reason_code": {
+            "$ref": "#/components/schemas/ReasonCode"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/CheckOutcome"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LimitResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "other_period_limits": {
+            "items": {
+              "$ref": "#/components/schemas/LimitResponse"
+            },
+            "type": "array",
+            "title": "Other Period Limits"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason_code",
+          "outcome",
+          "limit",
+          "other_period_limits"
+        ],
+        "title": "QuantityCheckResponse"
+      },
+      "ReasonCode": {
+        "type": "string",
+        "enum": [
+          "capability-provided",
+          "capability-not-provided",
+          "within-limit",
+          "unlimited",
+          "exceeds-limit",
+          "limit-not-found",
+          "limit-period-mismatch",
+          "within-budget",
+          "over-budget",
+          "pricing-not-found"
+        ],
+        "title": "ReasonCode",
+        "description": "Why a single need check ended the way it did."
+      },
+      "RecommendationRequest": {
+        "properties": {
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "file_storage_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Storage Bytes"
+          },
+          "database_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database Size Bytes"
+          },
+          "monthly_bandwidth_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Bandwidth Bytes"
+          },
+          "monthly_budget_usd_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Budget Usd Cents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "features"
+        ],
+        "title": "RecommendationRequest",
+        "description": "JSON body for one stack composition request."
+      },
+      "RecommendationResponse": {
+        "properties": {
+          "requirement": {
+            "$ref": "#/components/schemas/RequirementResponse"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleEvaluationResponse"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "composition": {
+            "$ref": "#/components/schemas/CompositionResponse"
+          },
+          "unevaluated_features": {
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "type": "array",
+            "title": "Unevaluated Features"
+          },
+          "plans": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PlanDetailResponse"
+            },
+            "type": "object",
+            "title": "Plans"
+          },
+          "sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SourceResponse"
+            },
+            "type": "object",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "requirement",
+          "roles",
+          "composition",
+          "unevaluated_features",
+          "plans",
+          "sources"
+        ],
+        "title": "RecommendationResponse"
+      },
+      "RequirementResponse": {
+        "properties": {
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "file_storage_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Storage Bytes"
+          },
+          "database_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database Size Bytes"
+          },
+          "monthly_bandwidth_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Bandwidth Bytes"
+          },
+          "monthly_budget_usd_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Budget Usd Cents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "features",
+          "file_storage_bytes",
+          "database_size_bytes",
+          "monthly_bandwidth_bytes",
+          "monthly_budget_usd_cents"
+        ],
+        "title": "RequirementResponse"
+      },
+      "RoleEvaluationResponse": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Feature"
+          },
+          "compatible": {
+            "items": {
+              "$ref": "#/components/schemas/PlanEvaluationResponse"
+            },
+            "type": "array",
+            "title": "Compatible"
+          },
+          "unknown": {
+            "items": {
+              "$ref": "#/components/schemas/PlanEvaluationResponse"
+            },
+            "type": "array",
+            "title": "Unknown"
+          },
+          "incompatible": {
+            "items": {
+              "$ref": "#/components/schemas/PlanEvaluationResponse"
+            },
+            "type": "array",
+            "title": "Incompatible"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "compatible",
+          "unknown",
+          "incompatible"
+        ],
+        "title": "RoleEvaluationResponse"
+      },
+      "ServiceResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "provider_id",
+          "name",
+          "slug",
+          "description"
+        ],
+        "title": "ServiceResponse"
+      },
+      "SourceResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date",
+            "title": "Checked At"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "checked_at",
+          "notes"
+        ],
+        "title": "SourceResponse"
+      },
+      "StackBudgetCheckResponse": {
+        "properties": {
+          "budget_usd_cents": {
+            "type": "integer",
+            "title": "Budget Usd Cents"
+          },
+          "priced_plan_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Priced Plan Ids"
+          },
+          "unpriced_plan_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unpriced Plan Ids"
+          },
+          "known_total_usd_cents": {
+            "type": "integer",
+            "title": "Known Total Usd Cents"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReasonCode"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/CheckOutcome"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "budget_usd_cents",
+          "priced_plan_ids",
+          "unpriced_plan_ids",
+          "known_total_usd_cents",
+          "reason",
+          "outcome"
+        ],
+        "title": "StackBudgetCheckResponse"
+      },
+      "StackResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentResponse"
+            },
+            "type": "array",
+            "title": "Assignments"
+          },
+          "plan_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Plan Ids"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EvaluationStatus"
+          },
+          "budget_check": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StackBudgetCheckResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "assignments",
+          "plan_ids",
+          "status",
+          "budget_check"
+        ],
+        "title": "StackResponse"
+      }
+    }
+  }
+}

@@ -970,7 +970,183 @@ OpenAPI 422가 FastAPI 기본 `HTTPValidationError`(`detail` 배열)를 가리�
   - 기존 496개 테스트 통과. HTTP contract 테스트 5개 추가.
 - `git diff --check` 통과.
 
+## FREE-011 Frontend API Contract Verification
 
+### Goal
 
+FREE-010 frontend design assumptions against the actual backend/API contract. 프론트엔드와 API는 수정하지 않았다. 저장소에 FREE-010 설계 문서는 없다. 가정은 이번 검증에서 제시된 항목이다.
 
+### Verification Scope
 
+- Requirement, Feature, `derive_needs()`
+- Quantity와 Budget
+- `domain/units.py`와 catalog seed
+- Recommendation / Composition response
+- Plan details, sources
+- Error contract, OpenAPI
+- ASGI로 받은 실제 JSON. fixture 파일은 추가하지 않았다.
+
+### Results
+
+Role은 `Feature`에서 만든다. `derive_needs()`가 Feature를 `CapabilityNeed`로 바꾸고, 그 feature가 `RoleEvaluation.role`이 된다. `database_size_bytes`는 Role을 만들지 않는다.
+
+- `database` Feature는 있다. JSON 값은 `"database"`다.
+- Database Role을 만드는 입력은 `features`에 `"database"`를 넣는 것이다. `database_size_bytes`는 그 feature가 있을 때만 양의 int로 붙일 수 있다.
+- `features: ["database"]`만으로도 role `database`가 생긴다. 이 응답의 `quantity_checks`는 빈 배열이다.
+- `database_size_bytes`만 있고 `database` feature가 없으면 `422 INVALID_REQUIREMENT`다. 메시지는 `invalid database_size_bytes: ... requires database`다.
+- `file_storage_bytes`도 같다. `file-uploads`가 필요하다.
+
+`backend-server`와 `backend-functions`는 동시에 선택할 수 있다. 상호 배타 validation은 없다. 둘은 서로 다른 role로 평가된다. 실제 응답 role은 `backend-server`, `backend-functions`이고, 조합 status는 `composed`다. checkbox인지 radio인지는 API가 정하지 않는다.
+
+수량 필드 `null`은 그 수량 조건이 없다는 뜻이다. Feature role은 남을 수 있다. `0`과 음수는 schema를 통과하고 `ProjectRequirement`에서 `422 INVALID_REQUIREMENT`다. `0`은 “0바이트를 요구”가 아니다. bool은 `422 REQUEST_VALIDATION_FAILED`다.
+
+`monthly_budget_usd_cents`의 `null`은 예산 검사가 없다는 뜻이고 stack `budget_check`는 `null`이다. `0`은 유효하다. `BudgetNeed`는 0을 free-only 상한으로 둔다. 현재 seed에는 pricing이 없어서 이 요청의 reason은 `pricing-not-found`다. `known_total_usd_cents`가 `0`이어도 확정 가격이 아니다. bool과 음수는 거절된다. 음수는 도메인에서 `INVALID_REQUIREMENT`, bool은 schema에서 `REQUEST_VALIDATION_FAILED`다.
+
+단위 상수는 두 종류다. `KB`/`MB`/`GB`/`TB`는 10의 거듭제곱이다. `KIB`/`MIB`/`GIB`/`TIB`는 2의 거듭제곱이다. Seed는 `MB`와 `GB`만 쓴다.
+
+- `500 MB` = `500 * 10**6` = 500000000
+- `1 GB` = `10**9` = 1000000000
+- `5 GB` = 5000000000
+- `10 GB` = 10000000000
+
+요청과 응답의 canonical 값은 byte 정수다. Frontend는 이 정수를 보내고, seed의 GB/MB와 맞추려면 10의 거듭제곱으로 나누면 된다.
+
+Role JSON:
+
+```text
+roles[].role
+roles[].compatible | unknown | incompatible
+  plan_id, role, status
+  capability_check
+  quantity_checks[]
+  global_quantity_checks[]
+  budget_check
+```
+
+`checks`라는 단일 배열은 없다. `evidence` 필드도 없다. `reason_code`와 `outcome`은 check 안에 있다. Candidate 안의 pricing은 `budget_check.pricing`뿐이다. Candidate 안에 sources는 없다.
+
+Status 문자열은 `compatible`, `unknown`, `incompatible`다. Check outcome은 `satisfied`, `violated`, `unknown`이다. 둘 다 `unknown`이라는 문자열을 쓰지만 서로 다른 값이다.
+
+ReasonCode JSON 값은 `capability-provided`, `capability-not-provided`, `within-limit`, `unlimited`, `exceeds-limit`, `limit-not-found`, `limit-period-mismatch`, `within-budget`, `over-budget`, `pricing-not-found`다. OpenAPI enum과 같다.
+
+Composition 필드는 `status`, `compatible`, `unknown`, `incompatible`, `blocked_roles`, `combination_count`, `unevaluated_features`다. Stack은 상태별 배열에 나뉜다. Stack 필드는 `key`, `assignments`, `plan_ids`, `status`, `budget_check`다. `features` 필드와 별도의 total price 필드는 없다.
+
+`budget_check`가 있을 때의 필드는 `budget_usd_cents`, `priced_plan_ids`, `unpriced_plan_ids`, `known_total_usd_cents`, `reason`, `outcome`이다. 예산이 없으면 이 객체 자체가 `null`이다. Frontend가 plan pricing을 합산할 값은 현재 seed에 없다. pricing은 `null`이다.
+
+`plans`의 key는 `plan.id`와 같다. 같은 plan은 응답에 한 번만 있다. `pricing`은 `null`일 수 있다. Caveat는 `plan_id`, `statement`, `source_id`다. Plan의 `sources`와 최상위 `sources`는 `id`, `url`, `checked_at`, `notes`다. 최상위 map은 plan source를 id 기준으로 한 번만 담는다. URL은 최상위 `sources[id]` 또는 plan `sources`에서 읽으면 된다. Caveat와 limit는 `source_id`만 가진다.
+
+`unevaluated_features`는 capability가 없는 feature다. 현재 매핑에 없는 feature는 `ai-api`뿐이다. `features: ["ai-api"]` 응답은 최상위와 composition 모두 `["ai-api"]`다. 순서는 Feature 선언 순서다.
+
+Business status는 모두 HTTP 200이다.
+
+- `composed`: stack이 `compatible`/`unknown`/`incompatible` 안에 있다. role evaluation이 있다. 예산이 없으면 `budget_check`는 `null`이다.
+- `blocked`: `blocked_roles`가 있고 stack 배열은 비어 있다. role evaluation은 남아 있다. 예: authentication, realtime, bandwidth `10000000000`이면 두 role 모두 `reason: "all-incompatible"`이다.
+- `no-roles`: `roles`는 `[]`, composition status는 `no-roles`, `combination_count`는 0, stack은 없다. `ai-api`는 `unevaluated_features`에 있다.
+- `too-many-combinations`: stack 배열은 비어 있고 `combination_count`는 있다. `max_combinations`는 응답에 없다. 요청 필드도 아니다. 운영 값은 Dependency의 10이고, 현재 seed의 2개 조합은 이 상태에 들어가지 않는다.
+
+`blocked_roles`는 `feature`와 `reason`이다. reason은 `no-candidates` 또는 `all-incompatible`이다.
+
+에러 본문은 `{"error": {"code", "message"}}`뿐이다. `loc`, `field`, `detail`은 없다.
+
+- schema 실패: `422`, `REQUEST_VALIDATION_FAILED`, message `Request validation failed.`
+- `ProjectRequirement` 실패: `422`, `INVALID_REQUIREMENT`, message는 `str(exc)`
+- 내부 `ValueError`와 `RepositoryError`: `500`, `INTERNAL_ERROR`, message `An internal error occurred.`
+
+OpenAPI `POST /api/v1/recommendations`의 request는 `features`만 required다. 나머지 네 정수는 integer 또는 null이고 `additionalProperties`는 false다. Feature enum은 코드의 9개 값과 같다. 200은 `RecommendationResponse`, 422와 500은 `ErrorResponse`다.
+
+분류:
+
+- PASS: Feature `database`와 role 생성 경로, 수량 null, 예산 null/0, byte 정수와 seed의 10진 GB/MB, role/candidate/reason/composition/plans/sources/unevaluated, business status, OpenAPI.
+- MISMATCH: “`database` feature가 없다”, “수량 0은 0바이트 요구”, “candidate에 단일 checks/evidence/sources가 있다”, “422에 field path가 있다”, “stack에 항상 total price가 있다”. 이는 FREE-010 가정과 실제 계약의 차이다. 현재 API를 이번 작업에서 바꾸지 않는다.
+- NEEDS DECISION: backend 두 feature의 입력 위젯, 예산이 없을 때 카드 가격을 보여줄지, `pricing-not-found`의 `known_total_usd_cents: 0`을 어떻게 문구로 보일지, `too-many-combinations` 문구에 서버 한도를 넣을지, JSON fixture 파일을 저장소에 둘지.
+
+### Frontend Impact
+
+요청은 `features` 배열이 본 요구사항이다. Database는 `"database"`를 넣고, 크기가 필요할 때만 양의 `database_size_bytes`를 더한다. `backend-server`와 `backend-functions`는 함께 보낼 수 있다.
+
+화면은 `roles`, 상태별 stack 배열, `plans[plan_id]`, 최상위 `sources`를 그대로 읽으면 된다. stack `key`는 해석하지 않는다. 가격은 `budget_check`가 있을 때만 `known_total_usd_cents`와 `reason`을 함께 보여야 한다. `reason`이 `pricing-not-found`이면 합계가 확정된 것이 아니다. plan pricing을 다시 더하지 않는다.
+
+422는 필드별 경로가 없으므로 폼 필드에 자동으로 연결할 수 없다. `INVALID_REQUIREMENT`는 message 문자열만 있다.
+
+### Next Decision Items
+
+- `backend-server`와 `backend-functions`를 checkbox로 둘지.
+- 예산을 입력하지 않은 stack 카드에 가격을 둘지.
+- `pricing-not-found`일 때 `known_total_usd_cents`를 금액으로 보일지.
+- `too-many-combinations` 설명에 한도 숫자를 넣을지. 응답에는 그 숫자가 없다.
+- 검증용 JSON fixture를 저장소에 추가할지.
+
+### Test
+
+- `uv run pytest` — 501 passed.
+- `uv run pytest tests/api` — 41 passed.
+- 백엔드 코드는 바꾸지 않았다. 기존 FREE-007 / FREE-008 테스트를 포함해 skip은 없다.
+
+## FREE-012 Frontend API Foundation
+
+### Goal
+
+FREE-013 Requirement Form이 사용할 OpenAPI 타입, API client, error model, byte/money formatter를 만든다. 화면 UI와 Backend 계약은 바꾸지 않는다.
+
+### Design
+
+우선순위는 실제 FastAPI OpenAPI, FREE-011 검증, 그다음 구현이다. `postRecommendation()`은 요청 JSON을 고치지 않는다. `null`과 `0`을 그대로 보낸다. composition status가 `blocked`, `no-roles`, `too-many-combinations`여도 HTTP 200이면 resolve한다.
+
+### OpenAPI Generation
+
+`frontend/scripts/dump-openapi.mjs`가 `uv run python`을 `spawnSync`로 실행하고 `freestack.main.app.openapi()`를 `frontend/openapi.json`에 쓴다.
+
+`npm run api:gen`은 `npx --yes openapi-typescript@7.13.0 --enum-values`로 `frontend/src/api/schema.gen.ts`를 만든다. `openapi-typescript`는 TypeScript 5 peer라 devDependency에 넣지 않는다. 생성 후 `package-lock.json`은 변하지 않았다.
+
+`schema.gen.ts`는 생성 파일이다. 비즈니스 로직을 직접 쓰지 않는다. oxlint는 이 파일을 오류 없이 통과해서 `.oxlintrc.json`에 ignore를 추가하지 않았다.
+
+### Type Strategy
+
+`src/api/types.ts`는 generated schema의 alias만 둔다. `ErrorObject.code`는 string이라 `KnownErrorCode`는 알려진 세 코드의 별도 union이다. 실제 `ApiError.code`는 임의 string을 받는다.
+
+`tsconfig.app.json`에 `strict`와 `noUncheckedIndexedAccess`를 켰다. 기존 화면 코드의 동작은 바꾸지 않았다.
+
+### API Client
+
+`requestJson<T>()`가 base URL의 끝 슬래시를 제거하고 path를 붙인다. 2xx JSON은 `T`로 반환한다. `fetch` reject는 `ApiError` `kind: "network"`다. `AbortError`는 그대로 다시 throw한다. non-2xx이면서 `{ error: { code, message } }`이면 `kind: "http"`다. JSON이 아니거나 그 구조가 아니면 `kind: "unexpected-response"`다.
+
+`getHealth()`도 `requestJson()`을 사용한다. `VITE_API_BASE_URL`이 없으면 기존처럼 `Error`를 throw한다.
+
+### Error Handling
+
+`ApiError`는 `erasableSyntaxOnly`에 맞게 필드를 constructor 안에서 할당한다. enum과 parameter property는 쓰지 않는다. runtime response schema validation은 하지 않는다.
+
+### Units
+
+`src/lib/units.ts`의 `MB`는 `1_000_000`, `GB`는 `1_000_000_000`이다. `toBytes()`는 0, 음수, 소수, NaN, Infinity, unsafe integer를 `RangeError`로 거절한다. `formatBytes()`는 1 GB 이상이면 GB, 1 MB 이상이면 MB, 그 미만은 B다. 소수는 최대 2자리이고 trailing zero는 뺀다. 천 단위 구분을 쓴다. feature와 `null`의 의미는 검사하지 않는다.
+
+### Money
+
+`formatUsdCents()`와 `wholeUsdToCents()`는 음수와 비정수를 거절한다. `formatUsdCents(0)`은 `"$0"`이다. `pricing === null`, `pricing-not-found`, `known_total_usd_cents === 0`의 의미는 판단하지 않는다.
+
+### Tests
+
+- `npm test` — 32 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.
+
+### Decisions
+
+- `openapi-typescript` 7.13.0을 `npx`로 실행한다.
+- generated schema를 작업 트리에 둔다.
+- `strict`와 `noUncheckedIndexedAccess`를 켠다.
+- byte는 SI decimal이다.
+- money는 cents 기준이다.
+- runtime response validation은 도입하지 않는다.
+- label 파일은 실제 사용 task에서 만든다.
+- Backend Contract Issue #1과 #2는 이번 task에서 수정하지 않는다.
+
+### Known API Contract Issues
+
+- Issue #1: 422 `REQUEST_VALIDATION_FAILED`의 message는 고정 문장이고 `loc`/`field`가 없다. 폼 필드에 자동으로 연결할 수 없다.
+- Issue #2: 수량 `0`은 `INVALID_REQUIREMENT`다. 예산이 있을 때 `known_total_usd_cents`가 `0`이고 reason이 `pricing-not-found`이면 확정 가격이 아니다. formatter는 이 판단을 하지 않는다.
+
+### Out of Scope
+
+Requirement Form, Recommendation UI, routing, Backend API, pricing seed, label placeholder.

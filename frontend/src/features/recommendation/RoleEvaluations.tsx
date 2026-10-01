@@ -28,9 +28,10 @@ const scopeLabels = {
 export type RoleEvaluationsProps = {
   roles: RoleEvaluation[]
   plans: RecommendationResponse['plans']
+  onOpenPlan: (planId: string) => void
 }
 
-export function RoleEvaluations({ roles, plans }: RoleEvaluationsProps) {
+export function RoleEvaluations({ roles, plans, onOpenPlan }: RoleEvaluationsProps) {
   const headingId = useId()
 
   return (
@@ -50,9 +51,24 @@ export function RoleEvaluations({ roles, plans }: RoleEvaluationsProps) {
                   {labelOf(group.status, evaluationStatusLabels)} ({group.evaluations.length})
                 </h4>
                 <ul className={styles.candidates}>
-                  {group.evaluations.map((evaluation) => (
+                  {group.evaluations.map((evaluation) => {
+                    const detail = plans[evaluation.plan_id]
+                    const label = planLabel(detail ?? null, evaluation.plan_id)
+                    return (
                     <li key={evaluation.plan_id} className={styles.candidate}>
-                      <p>{planLabel(plans[evaluation.plan_id] ?? null, evaluation.plan_id)}</p>
+                      <div className={styles.planIdentity}>
+                        <p>{label}</p>
+                        {detail === undefined ? null : (
+                          <button
+                            type="button"
+                            className={styles.detailButton}
+                            aria-label={`${label} 상세 보기`}
+                            onClick={() => onOpenPlan(evaluation.plan_id)}
+                          >
+                            상세 보기
+                          </button>
+                        )}
+                      </div>
                       <StatusBadge status={evaluation.status} />
                       <ul className={styles.checks}>
                         {evaluationChecks(evaluation).map((item, index) => (
@@ -60,7 +76,8 @@ export function RoleEvaluations({ roles, plans }: RoleEvaluationsProps) {
                         ))}
                       </ul>
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               </div>
             ))}

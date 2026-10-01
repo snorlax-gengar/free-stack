@@ -2234,3 +2234,177 @@ export const fixtureJ = {
     }
   }
 } satisfies RecommendationResponse
+
+// Fixture K. Live response for {"features":["backend-server"]}.
+// Render web service. Two sources. Caveats reference those sources.
+export const fixtureK = {
+  "requirement": {
+    "features": [
+      "backend-server"
+    ],
+    "file_storage_bytes": null,
+    "database_size_bytes": null,
+    "monthly_bandwidth_bytes": null,
+    "monthly_budget_usd_cents": null
+  },
+  "roles": [
+    {
+      "role": "backend-server",
+      "compatible": [
+        {
+          "plan_id": "render-web-service-free",
+          "role": "backend-server",
+          "status": "compatible",
+          "capability_check": {
+            "reason_code": "capability-provided",
+            "outcome": "satisfied"
+          },
+          "quantity_checks": [],
+          "global_quantity_checks": [],
+          "budget_check": null
+        }
+      ],
+      "unknown": [],
+      "incompatible": []
+    }
+  ],
+  "composition": {
+    "status": "composed",
+    "compatible": [
+      {
+        "key": "backend-server=render-web-service-free",
+        "assignments": [
+          {
+            "feature": "backend-server",
+            "plan_id": "render-web-service-free",
+            "status": "compatible"
+          }
+        ],
+        "plan_ids": [
+          "render-web-service-free"
+        ],
+        "status": "compatible",
+        "budget_check": null
+      }
+    ],
+    "unknown": [],
+    "incompatible": [],
+    "blocked_roles": [],
+    "combination_count": 1,
+    "unevaluated_features": []
+  },
+  "unevaluated_features": [],
+  "plans": {
+    "render-web-service-free": {
+      "plan": {
+        "id": "render-web-service-free",
+        "service_id": "render-web-service",
+        "name": "Free",
+        "slug": "free",
+        "description": "Free Render web service instance.",
+        "capabilities": [
+          "server-compute"
+        ]
+      },
+      "service": {
+        "id": "render-web-service",
+        "provider_id": "render",
+        "name": "Web Service",
+        "slug": "web-service",
+        "description": "Hosted web application compute."
+      },
+      "provider": {
+        "id": "render",
+        "name": "Render",
+        "slug": "render",
+        "description": "Application hosting platform."
+      },
+      "pricing": null,
+      "caveats": [
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "Each workspace receives 750 Free instance hours per calendar month.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "When Free instance hours are exhausted, Free web services are suspended until the next month.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "A Free web service spins down after 15 minutes without inbound traffic.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "Spinning a Free web service back up takes about one minute.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "Free web services have an ephemeral filesystem.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "A persistent disk cannot be attached to a Free web service.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "A Free web service cannot scale beyond a single instance.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "Render may restart a Free web service at any time.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "Render says not to use Free instances for production applications.",
+          "source_id": "render-free"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "The Free web service compute plan provides 0.1 CPU.",
+          "source_id": "render-compute-plans"
+        },
+        {
+          "plan_id": "render-web-service-free",
+          "statement": "The Free web service compute plan provides 512 MB of RAM.",
+          "source_id": "render-compute-plans"
+        }
+      ],
+      "sources": [
+        {
+          "id": "render-compute-plans",
+          "url": "https://render.com/docs/compute-plans",
+          "checked_at": "2026-09-30",
+          "notes": "Official Render compute plan specifications."
+        },
+        {
+          "id": "render-free",
+          "url": "https://render.com/docs/free",
+          "checked_at": "2026-09-30",
+          "notes": "Official Render Free instance documentation."
+        }
+      ]
+    }
+  },
+  "sources": {
+    "render-compute-plans": {
+      "id": "render-compute-plans",
+      "url": "https://render.com/docs/compute-plans",
+      "checked_at": "2026-09-30",
+      "notes": "Official Render compute plan specifications."
+    },
+    "render-free": {
+      "id": "render-free",
+      "url": "https://render.com/docs/free",
+      "checked_at": "2026-09-30",
+      "notes": "Official Render Free instance documentation."
+    }
+  }
+} satisfies RecommendationResponse

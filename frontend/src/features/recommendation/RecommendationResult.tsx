@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { RecommendationResponse } from '../../api/types.ts'
 import { featureLabels } from '../../labels/features.ts'
 import { compositionStatusLabels, labelOf, limitMetricLabels } from '../../labels/recommendation.ts'
@@ -6,6 +6,7 @@ import { formatBytes } from '../../lib/units.ts'
 import { assertNever } from '../../lib/assertNever.ts'
 import { formatBudgetLimit } from './resultModel.ts'
 import { CompositionResult } from './CompositionResult.tsx'
+import { PlanDetailDialog } from './PlanDetailDialog.tsx'
 import { RoleEvaluations } from './RoleEvaluations.tsx'
 import styles from './RecommendationResult.module.css'
 
@@ -16,7 +17,9 @@ export type RecommendationResultProps = {
 export function RecommendationResult({ response }: RecommendationResultProps) {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const headingId = useId()
+  const [openPlanId, setOpenPlanId] = useState<string | null>(null)
   const { requirement } = response
+  const openDetail = openPlanId === null ? undefined : response.plans[openPlanId]
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -38,10 +41,13 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
         <QuantityLine metric="bandwidth-bytes" bytes={requirement.monthly_bandwidth_bytes} />
         <p>{formatBudgetLimit(requirement.monthly_budget_usd_cents)}</p>
       </div>
-      {renderComposition(response)}
+      {renderComposition(response, setOpenPlanId)}
       {response.roles.length > 0 ? (
-        <RoleEvaluations roles={response.roles} plans={response.plans} />
+        <RoleEvaluations roles={response.roles} plans={response.plans} onOpenPlan={setOpenPlanId} />
       ) : null}
+      {openDetail === undefined ? null : (
+        <PlanDetailDialog detail={openDetail} onClose={() => setOpenPlanId(null)} />
+      )}
     </section>
   )
 }
@@ -63,12 +69,12 @@ function QuantityLine({
   )
 }
 
-function renderComposition(response: RecommendationResponse) {
+function renderComposition(response: RecommendationResponse, onOpenPlan: (planId: string) => void) {
   switch (response.composition.status) {
     case 'composed':
       return (
         <>
-          <CompositionResult composition={response.composition} plans={response.plans} />
+          <CompositionResult composition={response.composition} plans={response.plans} onOpenPlan={onOpenPlan} />
           <UnevaluatedFeatures features={response.unevaluated_features} />
         </>
       )

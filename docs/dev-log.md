@@ -1477,3 +1477,38 @@ App은 `submission.state.status === 'success'`일 때만 `RecommendationResult`�
 - `npm run lint` — 통과.
 - `uv run pytest` — 501 passed.
 - `git diff --check` — 통과. CRLF 경고만 있다.
+
+## FREE-014 PR3-3 Plan Detail / Sources / Caveats
+
+### Goal
+
+Stack Plan과 Role 후보 Plan에서 같은 Plan Detail dialog를 연다. Backend 계약은 바꾸지 않는다.
+
+### Implemented
+
+- `PlanDetailDialog`는 native `<dialog>`다. 마운트 때 이전 focus를 저장하고 `showModal()`을 호출한다. 언마운트 때 열려 있으면 `close()`하고, 이전 요소가 문서에 남아 있으면 focus를 되돌린다.
+- `RecommendationResult`만 `openPlanId`를 가진다. PlanDetail 객체는 state에 넣지 않고 `response.plans`에서 찾는다. 값이 있을 때만 dialog를 렌더한다.
+- Stack Plan row와 Role 후보 모두 `상세 보기` 버튼을 둔다. `detail`이 없으면 버튼은 없고 `plan_id` 표시는 유지한다.
+- 가격은 `pricing === null`과 요금 `0`을 구분한다. null은 가격 정보 없음이다. `0`은 `월 기본 요금 $0`이다.
+- Caveat와 Pricing의 `source_id`는 `sourceNumber()`로 배열 위치 번호가 된다. `[출처 n]`은 dialog 안 Source 항목으로 이동한다.
+- Source 목록 제목은 `이 결과에 사용된 출처`다. 링크는 `formatSourceLink()`를 쓰고, 확인일은 `formatCheckedAt()`이다. 빈 notes는 그리지 않는다.
+- Fixture K는 `{"features":["backend-server"]}`의 실제 API 응답이다. Render Web Service Free, Source 2개, Caveat 11개.
+- `sourceNumber(sources, sourceId)`만 추가했다. 못 찾으면 `null`이다.
+
+### Decisions
+
+- Plan 단위 상세이므로 화면마다 카드를 늘리지 않고 dialog 하나를 쓴다. 같은 Plan은 `openPlanId` 하나라 dialog 인스턴스도 하나다.
+- Source 번호는 배열 위치다. 순위가 아니다. Backend가 준 순서를 재정렬하거나 중복을 제거하지 않는다.
+- StrictMode가 effect를 다시 실행할 때 cleanup의 `close()`가 사용자 dismiss로 전달되면 dialog가 바로 사라진다. cleanup에서 난 `close`는 부모 `onClose`를 호출하지 않는다. 닫기 버튼과 Esc의 `close` 이벤트는 `openPlanId`를 지운다.
+- 배경 클릭으로 닫지 않는다. Esc는 dialog의 기본 `cancel` 동작을 쓴다.
+
+### Testing
+
+- `showModal`/`close` stub은 `PlanDetailDialog.test.tsx`와 dialog를 여는 `RecommendationResult.test.tsx`의 beforeEach에만 있다. 전역 setup은 없다.
+- 닫기 버튼, native close 이벤트, StrictMode remount, unmount focus 복원을 확인했다.
+- Fixture K caveat 11개의 첫 참조는 출처 2, 마지막 참조는 출처 1이다.
+- `npm test` — 147 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.
+- `git diff --check` — 통과. CRLF 경고만 있다.

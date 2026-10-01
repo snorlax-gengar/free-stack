@@ -15,9 +15,10 @@ import styles from './RecommendationResult.module.css'
 export type CompositionResultProps = {
   composition: Composition
   plans: RecommendationResponse['plans']
+  onOpenPlan: (planId: string) => void
 }
 
-export function CompositionResult({ composition, plans }: CompositionResultProps) {
+export function CompositionResult({ composition, plans, onOpenPlan }: CompositionResultProps) {
   const groups = stackGroups(composition)
   const stackCount = groups.reduce((count, group) => count + group.stacks.length, 0)
 
@@ -39,7 +40,7 @@ export function CompositionResult({ composition, plans }: CompositionResultProps
                 <StatusBadge status={stack.status} />
                 <ul className={styles.plans} aria-label="플랜">
                   {planRows(stack, plans).map((row) => (
-                    <PlanRowView key={row.planId} row={row} />
+                    <PlanRowView key={row.planId} row={row} onOpenPlan={onOpenPlan} />
                   ))}
                 </ul>
                 {budget === null ? null : (
@@ -58,10 +59,23 @@ export function CompositionResult({ composition, plans }: CompositionResultProps
   )
 }
 
-function PlanRowView({ row }: { row: PlanRow }) {
+function PlanRowView({ row, onOpenPlan }: { row: PlanRow; onOpenPlan: (planId: string) => void }) {
+  const label = planLabel(row.detail, row.planId)
   return (
     <li className={styles.plan}>
-      <p>{planLabel(row.detail, row.planId)}</p>
+      <div className={styles.planIdentity}>
+        <p>{label}</p>
+        {row.detail === null ? null : (
+          <button
+            type="button"
+            className={styles.detailButton}
+            aria-label={`${label} 상세 보기`}
+            onClick={() => onOpenPlan(row.planId)}
+          >
+            상세 보기
+          </button>
+        )}
+      </div>
       <ul className={styles.assignments} aria-label="배정된 기능">
         {row.assignments.map((assignment) => (
           <li key={assignment.feature} className={styles.assignment}>

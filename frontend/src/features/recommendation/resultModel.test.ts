@@ -12,6 +12,7 @@ import {
   fixtureG,
   fixtureH,
   fixtureI,
+  fixtureK,
 } from './fixtures/recommendationResponses.ts'
 import {
   byStatus,
@@ -24,6 +25,7 @@ import {
   formatSourceLink,
   planLabel,
   planRows,
+  sourceNumber,
   stackGroups,
   stackTitle,
 } from './resultModel.ts'
@@ -141,6 +143,15 @@ describe('planLabel', () => {
     }
     expect(planLabel(detail, 'supabase-platform-free')).toBe('Supabase · Platform · Free')
     expect(planLabel(null, 'missing-plan')).toBe('missing-plan')
+  })
+})
+
+describe('sourceNumber', () => {
+  it('uses the source array position and does not invent a missing source', () => {
+    const sources = fixtureK.plans['render-web-service-free']?.sources ?? []
+    expect(sourceNumber(sources, 'render-compute-plans')).toBe(1)
+    expect(sourceNumber(sources, 'render-free')).toBe(2)
+    expect(sourceNumber(sources, 'missing-source')).toBeNull()
   })
 })
 

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   fixtureA,
   fixtureB,
@@ -12,9 +12,24 @@ import {
 } from './fixtures/recommendationResponses.ts'
 import { RecommendationResult } from './RecommendationResult.tsx'
 
+const originalShowModal = HTMLDialogElement.prototype.showModal
+const originalClose = HTMLDialogElement.prototype.close
+
 describe('RecommendationResult', () => {
+  beforeEach(() => {
+    HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+      this.setAttribute('open', '')
+    }
+    HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+      this.removeAttribute('open')
+      this.dispatchEvent(new Event('close'))
+    }
+  })
+
   afterEach(() => {
     cleanup()
+    HTMLDialogElement.prototype.showModal = originalShowModal
+    HTMLDialogElement.prototype.close = originalClose
   })
 
   it('renders a composed result from fixture A and focuses the heading', () => {
@@ -146,6 +161,45 @@ describe('RecommendationResult', () => {
 
     expect(screen.getByRole('heading', { name: 'supabase-platform-free' })).toBeTruthy()
     expect(within(screen.getByRole('list', { name: '플랜' })).getByText('supabase-platform-free')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /상세 보기/ })).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByText('가격 정보 없음')).toBeNull()
+  })
+
+  it('opens the stack plan dialog and removes it after close', () => {
+    render(<RecommendationResult response={fixtureA} />)
+
+    const plans = screen.getByRole('list', { name: '플랜' })
+    fireEvent.click(within(plans).getByRole('button', { name: 'Supabase · Platform · Free 상세 보기' }))
+    expect(screen.getByRole('dialog', { name: 'Supabase · Platform · Free' })).toBeTruthy()
+    expect(screen.getByText('Free Supabase plan.')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('opens the shared Cloudflare Pages plan from either stack in one dialog', () => {
+    render(<RecommendationResult response={fixtureJ} />)
+
+    const buttons = screen.getAllByRole('article').map((article) => (
+      within(article).getByRole('button', { name: 'Cloudflare · Pages · Free 상세 보기' })
+    ))
+    expect(buttons).toHaveLength(2)
+    fireEvent.click(buttons[0]!)
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    fireEvent.click(buttons[1]!)
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(screen.getByRole('dialog', { name: 'Cloudflare · Pages · Free' })).toBeTruthy()
+    expect(screen.getByText('Free Cloudflare Pages plan.')).toBeTruthy()
+  })
+
+  it('opens a role candidate that is not assigned in the stack', () => {
+    render(<RecommendationResult response={fixtureG} />)
+
+    fireEvent.click(screen.getByText('파일 업로드 — 충족 1 · 미충족 1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Supabase · Platform · Free 상세 보기' }))
+    expect(screen.getByRole('dialog', { name: 'Supabase · Platform · Free' })).toBeTruthy()
+    expect(screen.getByText('Hosted Postgres and application backend platform.')).toBeTruthy()
   })
 })
 

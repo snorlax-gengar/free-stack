@@ -12,6 +12,7 @@ import type {
   QuantityCheck,
   ReasonCode,
   RoleEvaluation,
+  Source,
   Stack,
   StackBudgetCheck,
 } from '../../api/types.ts'
@@ -81,6 +82,14 @@ export function planLabel(detail: PlanDetail | null, planId: string): string {
     return planId
   }
   return `${detail.provider.name} · ${detail.service.name} · ${detail.plan.name}`
+}
+
+export function sourceNumber(sources: Source[], sourceId: string): number | null {
+  const index = sources.findIndex((source) => source.id === sourceId)
+  if (index < 0) {
+    return null
+  }
+  return index + 1
 }
 
 export function describeCheckDetail(check: Check | QuantityCheck | PlanBudgetCheck): string | null {

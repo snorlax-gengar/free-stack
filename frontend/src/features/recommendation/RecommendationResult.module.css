@@ -195,3 +195,127 @@
   gap: 8px;
   margin-top: 12px;
 }
+
+.planIdentity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+}
+
+.planIdentity p {
+  margin: 0;
+}
+
+.detailButton {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #c5ceda;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+
+.detailButton:hover {
+  background: #f4f6f9;
+}
+
+.detailButton:focus-visible,
+.dialog a:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-width: 560px;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid #e1e6ee;
+  border-radius: 16px;
+  background: #fff;
+  color: #1c2430;
+}
+
+.dialog[open] {
+  display: grid;
+  gap: 16px;
+}
+
+.dialog::backdrop {
+  background: rgb(28 36 48 / 45%);
+}
+
+.dialogTitle,
+.dialogHeading,
+.dialog p {
+  margin: 0;
+}
+
+.dialogTitle {
+  font-size: 22px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.dialogHeading {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.dialogSection {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dialogList,
+.sources {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.dialogList {
+  list-style: disc;
+}
+
+.sources {
+  padding-left: 1.4em;
+}
+
+.sourceLink,
+.dialogList li {
+  overflow-wrap: anywhere;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 639px) {
+  .dialog {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+  }
+}

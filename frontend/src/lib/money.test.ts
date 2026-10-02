@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatUsdCents, wholeUsdToCents } from './money.ts'
+import { formatUsdCents, wholeKrwToUsdCents, wholeUsdToCents } from './money.ts'
 
 describe('formatUsdCents', () => {
   it('formats cents as dollars', () => {
@@ -23,5 +23,13 @@ describe('wholeUsdToCents', () => {
 
   it.each([-1, 1.5, Number.MAX_SAFE_INTEGER])('rejects %s', (dollars) => {
     expect(() => wholeUsdToCents(dollars)).toThrow(RangeError)
+  })
+})
+
+describe('wholeKrwToUsdCents', () => {
+  it('converts won at 1400 per dollar and keeps a positive amount above zero cents', () => {
+    expect(wholeKrwToUsdCents(0)).toBe(0)
+    expect(wholeKrwToUsdCents(1400)).toBe(100)
+    expect(wholeKrwToUsdCents(1)).toBe(1)
   })
 })

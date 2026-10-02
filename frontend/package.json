@@ -12,6 +12,7 @@
     "api:gen": "node scripts/dump-openapi.mjs && npx --yes openapi-typescript@7.13.0 openapi.json --enum-values -o src/api/schema.gen.ts"
   },
   "dependencies": {
+    "gengarileo-design-system": "^1.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

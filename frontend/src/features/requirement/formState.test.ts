@@ -10,7 +10,9 @@ describe('formReducer', () => {
         databaseSize: { amount: '', unit: 'MB' },
         monthlyBandwidth: { amount: '', unit: 'GB' },
       },
-      budgetUsd: '',
+      bandwidthRange: null,
+      budgetAmount: '',
+      budgetCurrency: 'USD',
     })
   })
 
@@ -78,7 +80,20 @@ describe('formReducer', () => {
   it('sets, presets, and clears budget independently', () => {
     const typed = formReducer(initialFormValues, { type: 'setBudget', amount: '4' })
     const preset = formReducer(typed, { type: 'applyBudgetPreset', amount: '10' })
-    expect(preset.budgetUsd).toBe('10')
-    expect(formReducer(preset, { type: 'clearBudget' }).budgetUsd).toBe('')
+    expect(preset.budgetAmount).toBe('10')
+    expect(formReducer(preset, { type: 'clearBudget' }).budgetAmount).toBe('')
+  })
+
+  it('clears the budget amount when the currency changes', () => {
+    const typed = formReducer(initialFormValues, { type: 'setBudget', amount: '10' })
+    const won = formReducer(typed, { type: 'setBudgetCurrency', currency: 'KRW' })
+    expect(won.budgetCurrency).toBe('KRW')
+    expect(won.budgetAmount).toBe('')
+  })
+
+  it('selects a bandwidth range and clears it', () => {
+    const selected = formReducer(initialFormValues, { type: 'setBandwidthRange', range: 'over-5' })
+    expect(selected.bandwidthRange).toBe('over-5')
+    expect(formReducer(selected, { type: 'setBandwidthRange', range: null }).bandwidthRange).toBe(null)
   })
 })

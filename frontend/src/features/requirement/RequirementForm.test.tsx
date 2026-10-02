@@ -64,10 +64,28 @@ describe('RequirementForm', () => {
     const { onSubmit } = renderForm()
 
     fireEvent.click(screen.getByLabelText('정적 프론트엔드'))
-    fireEvent.change(screen.getByLabelText('월 예산 (USD)'), { target: { value: '0' } })
+    fireEvent.change(screen.getByLabelText('월 예산'), { target: { value: '0' } })
     fireEvent.click(screen.getByRole('button', { name: '무료 스택 추천받기' }))
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ monthly_budget_usd_cents: 0 }))
+  })
+
+  it('submits a bandwidth range without a unit select', () => {
+    const { onSubmit } = renderForm()
+
+    fireEvent.click(screen.getByLabelText('정적 프론트엔드'))
+    expect(screen.queryByRole('combobox', { name: '월 트래픽(대역폭) 단위' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '5GB 초과' }))
+    fireEvent.click(screen.getByRole('button', { name: '원' }))
+    fireEvent.change(screen.getByLabelText('월 예산'), { target: { value: '1400' } })
+    fireEvent.click(screen.getByRole('button', { name: '무료 스택 추천받기' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        monthly_bandwidth_bytes: 6_000_000_000,
+        monthly_budget_usd_cents: 100,
+      }),
+    )
   })
 
   it('marks the submit button busy without disabling it', () => {

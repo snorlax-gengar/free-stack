@@ -1,14 +1,38 @@
 :root {
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  color: #1c2430;
-  background: #f3f5f8;
+  --blue-01: #f0f7ff;
+  --blue-03: #c2e0ff;
+  --blue-04: #80bfff;
+  --blue-06: #0066ff;
+  --blue-07: #0052cc;
+  --blue-08: #003d99;
+  --gray-01: #fafbfc;
+  --gray-02: #e5e7eb;
+  --gray-03: #d1d5db;
+  --gray-06: #64748b;
+  --gray-09: #334155;
+  --gray-10: #0f172a;
+  --focus: #0f172a;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+  background: #fafbfc;
   line-height: 1.5;
 }
 
 body {
   margin: 0;
+  background-color: #fafbfc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
 }
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+

@@ -29,6 +29,7 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
 
   useEffect(() => {
     headingRef.current?.focus()
+    headingRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }, [])
 
   function openPlan(planId: string) {

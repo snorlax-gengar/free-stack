@@ -1,8 +1,13 @@
 import { featureValues } from '../../api/schema.gen.ts'
 import type { RecommendationRequest } from '../../api/types.ts'
-import { wholeUsdToCents } from '../../lib/money.ts'
+import { wholeKrwToUsdCents, wholeUsdToCents } from '../../lib/money.ts'
 import { toBytes } from '../../lib/units.ts'
-import { QUANTITY_FIELDS, type QuantityKey, type RequirementFormValues } from './formState.ts'
+import {
+  BANDWIDTH_RANGES,
+  QUANTITY_FIELDS,
+  type QuantityKey,
+  type RequirementFormValues,
+} from './formState.ts'
 
 export type RequestField = 'features' | QuantityKey | 'budget'
 
@@ -42,7 +47,7 @@ export function toRecommendationRequest(values: RequirementFormValues): ToReques
   }
 
   for (const field of QUANTITY_FIELDS) {
-    if (field.feature !== null && !selected.has(field.feature)) {
+    if (field.key === 'monthlyBandwidth' || (field.feature !== null && !selected.has(field.feature))) {
       continue
     }
     const parsed = parseQuantity(values.quantities[field.key].amount, values.quantities[field.key].unit)
@@ -55,7 +60,10 @@ export function toRecommendationRequest(values: RequirementFormValues): ToReques
     }
   }
 
-  const budget = parseBudget(values.budgetUsd)
+  const range = BANDWIDTH_RANGES.find((item) => item.id === values.bandwidthRange)
+  request.monthly_bandwidth_bytes = range === undefined ? null : toBytes(range.gigabytes, 'GB')
+
+  const budget = parseBudget(values.budgetAmount, values.budgetCurrency)
   if (budget.ok) {
     request.monthly_budget_usd_cents = budget.value
   } else if (!budget.empty) {
@@ -97,6 +105,7 @@ function parseQuantity(
 
 function parseBudget(
   amount: string,
+  currency: RequirementFormValues['budgetCurrency'],
 ):
   | { ok: true; value: number | null; empty: boolean }
   | { ok: false; empty: false; code: 'not-integer' | 'too-large'; message: string } {
@@ -107,12 +116,13 @@ function parseBudget(
   if (!/^[0-9]+$/.test(text)) {
     return { ok: false, empty: false, code: 'not-integer', message: NOT_INTEGER_BUDGET }
   }
-  const dollars = Number(text)
-  if (!Number.isSafeInteger(dollars)) {
+  const whole = Number(text)
+  if (!Number.isSafeInteger(whole)) {
     return { ok: false, empty: false, code: 'too-large', message: TOO_LARGE }
   }
   try {
-    return { ok: true, value: wholeUsdToCents(dollars), empty: false }
+    const cents = currency === 'KRW' ? wholeKrwToUsdCents(whole) : wholeUsdToCents(whole)
+    return { ok: true, value: cents, empty: false }
   } catch {
     return { ok: false, empty: false, code: 'too-large', message: TOO_LARGE }
   }

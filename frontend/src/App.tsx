@@ -3,6 +3,7 @@ import { getHealth } from './api/client'
 import { RecommendationResult } from './features/recommendation/RecommendationResult.tsx'
 import { RequirementForm } from './features/requirement/RequirementForm.tsx'
 import { useRecommendationSubmit } from './features/requirement/useRecommendationSubmit.ts'
+import { Badge, GengarileoLogo } from 'gengarileo-design-system'
 import './App.css'
 
 type BackendStatus = 'checking' | 'ok' | 'failed'
@@ -47,11 +48,21 @@ export default function App() {
   return (
     <main className="shell">
       <header className="header">
-        <div>
-          <h1 className="brand">FreeStack</h1>
-          <p className="tagline">무료/저비용 사이드프로젝트 인프라 추천</p>
+        <div className="brandGroup">
+          <GengarileoLogo size={30} variant="dark" showWordmark={false} />
+          <div>
+            <h1 className="brand">FreeStack</h1>
+            <p className="tagline">무료/저비용 사이드프로젝트 인프라 추천</p>
+          </div>
         </div>
-        <p className="health">{statusLabel(status)}</p>
+        <Badge
+          variant={status === 'ok' ? 'slate' : status === 'checking' ? 'outline' : 'coral'}
+          size="sm"
+          dot={true}
+          className="healthBadge"
+        >
+          {statusLabel(status)}
+        </Badge>
       </header>
       <RequirementForm
         submitting={submitting}

@@ -36,8 +36,10 @@ export function CompositionResult({ composition, plans, onOpenPlan }: Compositio
             const budget = stack.budget_check === null ? null : describeStackBudget(stack.budget_check)
             return (
               <article key={stack.key} className={styles.stack}>
-                <h4 className={styles.stackTitle}>{stackTitle(stack, plans)}</h4>
-                <StatusBadge status={stack.status} />
+                <div className={styles.stackHeader}>
+                  <h4 className={styles.stackTitle}>{stackTitle(stack, plans)}</h4>
+                  <StatusBadge status={stack.status} />
+                </div>
                 <ul className={styles.plans} aria-label="플랜">
                   {planRows(stack, plans).map((row) => (
                     <PlanRowView key={row.planId} row={row} onOpenPlan={onOpenPlan} />

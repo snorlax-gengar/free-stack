@@ -4,10 +4,13 @@ import type { RecommendationRequest } from '../../api/types.ts'
 import { featureDescriptions, featureLabels } from '../../labels/features.ts'
 import { AmountField } from './AmountField.tsx'
 import {
+  BANDWIDTH_RANGES,
   BUDGET_PRESETS,
   QUANTITY_FIELDS,
   formReducer,
   initialFormValues,
+  type BandwidthRangeId,
+  type BudgetCurrency,
   type QuantityKey,
 } from './formState.ts'
 import styles from './RequirementForm.module.css'
@@ -93,22 +96,22 @@ export function RequirementForm({ submitting, error, onSubmit }: RequirementForm
               dispatch={dispatch}
             />
           ))}
-          <QuantityControl
-            fieldKey="monthlyBandwidth"
-            values={values}
-            error={messageFor('monthlyBandwidth')}
-            dispatch={dispatch}
+          <BandwidthRangeField
+            range={values.bandwidthRange}
+            onChange={(range) => dispatch({ type: 'setBandwidthRange', range })}
           />
         </fieldset>
         <AmountField
             id="budget-amount"
-            label="월 예산 (USD)"
+            label="월 예산"
             legendPrefix="3. "
-            prefix="$"
-            amount={values.budgetUsd}
-            hint={'비워 두면 예산 조건 없이 추천합니다.\n0은 월 $0 상한으로 처리됩니다.'}
+            prefix={values.budgetCurrency === 'KRW' ? '₩' : '$'}
+            amount={values.budgetAmount}
+            currency={values.budgetCurrency}
+            hint={budgetHint(values.budgetCurrency)}
             error={messageFor('budget')}
-            presets={BUDGET_PRESETS}
+            presets={BUDGET_PRESETS[values.budgetCurrency]}
+            onCurrencyChange={(currency) => dispatch({ type: 'setBudgetCurrency', currency })}
             onAmountChange={(amount) => dispatch({ type: 'setBudget', amount })}
             onPreset={(preset) => dispatch({ type: 'applyBudgetPreset', amount: preset.amount })}
             onClear={() => dispatch({ type: 'clearBudget' })}
@@ -129,6 +132,44 @@ export function RequirementForm({ submitting, error, onSubmit }: RequirementForm
       </div>
     </form>
   )
+}
+
+function BandwidthRangeField({
+  range,
+  onChange,
+}: {
+  range: BandwidthRangeId | null
+  onChange: (range: BandwidthRangeId | null) => void
+}) {
+  const field = QUANTITY_FIELDS.find((item) => item.key === 'monthlyBandwidth')
+  return (
+    <fieldset className={styles.amount}>
+      <legend id="quantity-monthlyBandwidth-legend" className={styles.subLegend}>
+        {field?.label}
+      </legend>
+      <div className={styles.presets} role="group" aria-labelledby="quantity-monthlyBandwidth-legend">
+        {BANDWIDTH_RANGES.map((item) => (
+          <button
+            key={item.id}
+            className={styles.preset}
+            type="button"
+            aria-pressed={range === item.id}
+            onClick={() => onChange(range === item.id ? null : item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <p className={styles.hint}>{field?.hint}</p>
+    </fieldset>
+  )
+}
+
+function budgetHint(currency: BudgetCurrency): string {
+  if (currency === 'KRW') {
+    return '비워 두면 예산 조건 없이 추천합니다.\n0은 월 0원 상한으로 처리됩니다.\n원화는 1달러 = 1,400원으로 바꿔 비교합니다.'
+  }
+  return '비워 두면 예산 조건 없이 추천합니다.\n0은 월 $0 상한으로 처리됩니다.'
 }
 
 function QuantityControl({

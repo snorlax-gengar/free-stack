@@ -13,10 +13,21 @@ export type QuantityInput = {
   unit: QuantityUnit
 }
 
+export const BANDWIDTH_RANGES = [
+  { id: 'up-to-5', label: '5GB 이하', gigabytes: 5 },
+  { id: 'over-5', label: '5GB 초과', gigabytes: 6 },
+] as const
+
+export type BandwidthRangeId = (typeof BANDWIDTH_RANGES)[number]['id']
+
+export type BudgetCurrency = 'USD' | 'KRW'
+
 export type RequirementFormValues = {
   features: readonly Feature[]
   quantities: Record<QuantityKey, QuantityInput>
-  budgetUsd: string
+  bandwidthRange: BandwidthRangeId | null
+  budgetAmount: string
+  budgetCurrency: BudgetCurrency
 }
 
 export type QuantityPreset = {
@@ -66,22 +77,26 @@ export const QUANTITY_FIELDS = [
     requestKey: 'monthly_bandwidth_bytes',
     feature: null,
     label: '월 트래픽(대역폭)',
-    hint: '비워 두면 트래픽 조건 없이 추천합니다.',
+    hint: '선택하지 않으면 트래픽 조건 없이 추천합니다. 5GB 이하는 5GB, 5GB 초과는 6GB로 비교합니다.',
     defaultUnit: 'GB',
-    presets: [
-      { label: '10 GB', amount: '10', unit: 'GB' },
-      { label: '100 GB', amount: '100', unit: 'GB' },
-      { label: '500 GB', amount: '500', unit: 'GB' },
-    ],
+    presets: [],
   },
 ] as const satisfies readonly QuantityFieldConfig[]
 
-export const BUDGET_PRESETS = [
-  { label: '$0', amount: '0' },
-  { label: '$5', amount: '5' },
-  { label: '$10', amount: '10' },
-  { label: '$20', amount: '20' },
-] as const
+export const BUDGET_PRESETS = {
+  USD: [
+    { label: '$0', amount: '0' },
+    { label: '$5', amount: '5' },
+    { label: '$10', amount: '10' },
+    { label: '$20', amount: '20' },
+  ],
+  KRW: [
+    { label: '0원', amount: '0' },
+    { label: '5,000원', amount: '5000' },
+    { label: '10,000원', amount: '10000' },
+    { label: '30,000원', amount: '30000' },
+  ],
+} as const
 
 export type FormAction =
   | { type: 'toggleFeature'; feature: Feature }
@@ -89,7 +104,9 @@ export type FormAction =
   | { type: 'setQuantityUnit'; key: QuantityKey; unit: QuantityUnit }
   | { type: 'applyQuantityPreset'; key: QuantityKey; amount: string; unit: QuantityUnit }
   | { type: 'clearQuantity'; key: QuantityKey }
+  | { type: 'setBandwidthRange'; range: BandwidthRangeId | null }
   | { type: 'setBudget'; amount: string }
+  | { type: 'setBudgetCurrency'; currency: BudgetCurrency }
   | { type: 'applyBudgetPreset'; amount: string }
   | { type: 'clearBudget' }
 
@@ -100,7 +117,9 @@ export const initialFormValues: RequirementFormValues = {
     databaseSize: { amount: '', unit: 'MB' },
     monthlyBandwidth: { amount: '', unit: 'GB' },
   },
-  budgetUsd: '',
+  bandwidthRange: null,
+  budgetAmount: '',
+  budgetCurrency: 'USD',
 }
 
 export function formReducer(state: RequirementFormValues, action: FormAction): RequirementFormValues {
@@ -125,11 +144,15 @@ export function formReducer(state: RequirementFormValues, action: FormAction): R
         amount: '',
         unit: defaultUnit(action.key),
       })
+    case 'setBandwidthRange':
+      return { ...state, bandwidthRange: action.range }
     case 'setBudget':
     case 'applyBudgetPreset':
-      return { ...state, budgetUsd: action.amount }
+      return { ...state, budgetAmount: action.amount }
+    case 'setBudgetCurrency':
+      return { ...state, budgetCurrency: action.currency, budgetAmount: '' }
     case 'clearBudget':
-      return { ...state, budgetUsd: '' }
+      return { ...state, budgetAmount: '' }
     default:
       return state
   }

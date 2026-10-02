@@ -1607,3 +1607,159 @@ Plan Detail Dialog가 StrictMode에서 열리자마자 닫히지 않게 하고, 
 - `uv run pytest` — 501 passed. 이번 변경에 backend 파일은 없다.
 - `git diff --check` — 통과. CRLF 경고만 있다.
 - 브라우저: 정적 프론트엔드와 파일 업로드, 대역폭 10 GB 결과에서 역할 검사 `[출처 1]`이 보인다. 기능 충족 문장과 `한도 정보 없음`에는 링크가 없다. 375/768/1280에서 결과 폭은 688px이고 가로 overflow는 없다. 역할 인용을 클릭하면 Cloudflare · R2 · Free dialog가 열리고 출처 항목으로 focus가 가며 URL은 `http://127.0.0.1:5173/`이다. 닫으면 클릭한 `[출처 1]`로 focus가 돌아온다. Dialog 안의 출처 인용도 hash를 바꾸지 않는다. 후보 없음과 `blocked`/`no-roles`/`too-many-combinations`는 이번 브라우저 확인에서 다시 조작하지 않았다.
+
+## Visual pass — Socar palette
+
+### Goal
+
+화면 색과 버튼을 [쏘카 브랜드 에셋](https://design.socar.kr/brandasset)의 공개 컬러와 버튼 형태에 맞춘다. 로고, 브랜드명, 추천 동작은 바꾸지 않는다.
+
+### Decision
+
+브랜드 센터 본문은 Gray 10 배경의 갤러리다. 입력 폼에 그 어두운 화면을 그대로 씌우면 카드와 입력 대비가 달라진다. 그래서 페이지는 Gray 01 배경에 흰 카드를 두고, 색 값과 버튼 형태만 가져온다.
+
+- Primary `#0078FF`는 Socar Blue 06이다. 제출 버튼은 컬러 칩과 같은 12px radius, 높이 48px, 흰 글자, weight 700이다. hover는 Blue 07 `#005AFF`, active는 Blue 08 `#0041E6`, 비활성은 Blue 04 `#66B0FF`이다.
+- 프리셋과 상세 보기, 닫기는 브랜드 센터의 View/Hide 버튼처럼 흰 배경, pill radius, Gray 09 글자, weight 600이다. 높이는 터치 영역 44px를 유지한다.
+- 본문 글자는 Gray 10, 보조 글자는 Gray 06, 카드 테두리는 Gray 02, 선택된 기능 카드는 Blue 01 배경과 Blue 06 테두리다.
+- 글꼴은 브랜드 센터와 같은 IBM Plex Sans KR이다.
+- 충족, 확인 필요, 미충족 badge의 의미 색은 팔레트 밖에 그대로 둔다.
+
+### Testing
+
+- `npm test` — 165 passed.
+- 브라우저: 기능 선택, 10 GB 프리셋, 제출, 결과 카드, 375px dialog 닫기 버튼을 확인했다. 375px에서 가로 overflow는 없다.
+
+## Usage range and budget currency
+
+### Goal
+
+월 트래픽의 GB 단위 선택을 구간 버튼으로 바꾸고, 월 예산에서 USD와 원화를 구분한다. API 계약은 바꾸지 않는다.
+
+### Decision
+
+- 대역폭은 숫자 입력과 단위 select 대신 `1G 이하`, `1G-10G`, `10-100G`, `100-500G`, `500G 이상`이다. 같은 버튼을 다시 누르면 선택이 해제된다.
+- 비교값은 구간의 상한이다. `1G 이하`는 1GB, `1G-10G`는 10GB, `10-100G`는 100GB, `100-500G`는 500GB다. `500G 이상`은 500GB 한도 플랜이 통과하지 않도록 1,000GB로 보낸다.
+- 파일 저장 용량과 데이터베이스 크기는 기존 MB/GB 입력을 유지한다. 제시한 구간이 월 트래픽 규모라서다.
+- 예산 통화는 USD와 원이다. 통화를 바꾸면 금액은 비운다. 원화는 1달러 = 1,400원으로 `monthly_budget_usd_cents`에 맞춘다. 0원은 0센트이고, 1원 이상인데 반올림이 0센트면 1센트로 올린다.
+- 결과 화면의 예산 표시는 API가 돌려주는 달러 센트 그대로다.
+
+### Testing
+
+- `npm test` — 170 passed.
+- 브라우저: GB 단위 select는 없고 구간 버튼이 있다. `10-100G`와 원화 10,000원을 제출하면 결과는 대역폭 100 GB, 월 $7.14 상한이다. 375px에서 가로 overflow는 없다.
+
+## Bandwidth choices and result presentation
+
+### Goal
+
+월 트래픽 구간을 현재 카탈로그가 구분하는 선에 맞추고, 추천 결과 화면을 읽기 쉽게 정리한다. API는 바꾸지 않는다.
+
+### Decision
+
+- 대역폭 버튼은 `5GB 이하`와 `5GB 초과`다. 현재 숫자 한도는 Supabase Free의 월 5GB뿐이라 그 위 구간은 같은 판정이 된다.
+- `5GB 이하`는 5GB, `5GB 초과`는 6GB로 보낸다. 6GB는 5GB 한도를 넘기기 위한 비교값이다.
+- 요청 조건의 기능과 수량, 예산은 pill로 보여 준다. 조합 제목과 상태 badge는 한 줄에 두고, 플랜 행과 역할 후보 검사는 옅은 배경으로 구분한다.
+- 파일 저장 용량과 데이터베이스 크기는 그대로 둔다. 그 한도는 500MB, 1GB, 10GB로 서로 다르다.
+
+### Testing
+
+- 브라우저: 대역폭 버튼은 `5GB 이하`, `5GB 초과`다. `5GB 이하`를 제출하면 요청 조건에 `대역폭 5 GB` pill이 보인다. 조합 제목과 상태 badge는 한 줄이고, 플랜 행은 카드 안 옅은 배경이다. 375px에서 가로 overflow는 없다.
+
+## Visual pass — Gengarileo Design System (GDS)
+
+### Goal
+
+새로 배포된 `gengarileo-design-system`을 적용하여 투박했던 디자인을 세련되고 감성적인 톤앤매너(Aero Sky, Papa Lavender, Home Slate)로 개선한다. 기존 API 계약 및 동작, 접근성 텍스트와 테스트는 모두 유지한다.
+
+### Decisions
+
+- `frontend/package.json`에 `gengarileo-design-system` v1.2.0 의존성을 추가하고 `src/main.tsx`에서 번들된 CSS `gengarileo-design-system/style.css`를 불러온다.
+- `frontend/index.html`에 GDS 표준 서체인 Gowun Dodum(고운돋움) 폰트를 추가하고, `src/index.css`의 CSS 변수들을 GDS 색상 토큰(Aero Sky, Papa Lavender, Home Slate)과 폰트 변수로 맵핑하여 기존 CSS 모듈과 자연스럽게 연동한다.
+- `App.tsx` 상단 헤더:
+  - FreeStack 브랜드 타이틀 옆에 GDS의 시그니처 심볼인 `GengarileoLogo` (`variant="gradient"`)를 배치한다.
+  - 쉘 상단 보더에 GDS 시그니처 듀오 그라데이션(`linear-gradient(90deg, #38bdf8 0%, #a855f7 100%)`)을 적용한다.
+  - 헤더 영역 전체를 글래스모피즘 카드(`backdrop-filter: blur(12px)`, 반투명 흰색 배경 및 20px 라운딩)로 정돈한다.
+  - `body` 배경에 Aero Sky, Papa Lavender, Baby Butter의 미세한 앰비언트 오로라 radial gradient를 적용하여 평면감을 줄이고 입체감을 부여한다.
+  - Backend Status 텍스트를 GDS `Badge` 컴포넌트(상태 닷 포함, `sky`/`butter`/`coral`)로 감싸 시각적 완성도를 높인다. 테스트가 확인하는 텍스트는 그대로 유지한다.
+- `RequirementForm`:
+  - 폼 그룹과 카드에 GDS 라운딩(14~16px), 은은한 그림자(`0 4px 20px -2px rgba(15, 23, 42, 0.04)`), 부드러운 테두리를 적용한다.
+  - 기능 선택 카드(`.featureCard`)의 패딩(14px 16px)과 텍스트 여백을 조정하고, 체크박스 정렬을 플렉스 기반으로 일원화하여 클릭 감도와 가독성을 개선한다. 호버 시 부드러운 스케일/그림자 효과와 체크 시 스카이/라벤더 은은한 배경 하이라이트를 적용한다.
+  - 대역폭 구간 선택 및 예산 프리셋 버튼에 GDS 알약 형태(pill)와 선택 상태 그라데이션을 적용한다.
+  - 메인 제출 버튼을 52px 높이와 16px 라운딩, GDS 시그니처 듀오 그라데이션과 부드러운 호버 애니메이션/그림자로 개선하고 로딩 중 `aria-disabled` 동작을 온전히 유지한다.
+  - 오류 및 알림 배너를 GDS Coral 테마에 맞춰 부드러운 라운드 카드로 정돈한다.
+- `RecommendationResult`:
+  - `StatusBadge`를 GDS의 `Badge` 컴포넌트로 리팩토링하고 평가 상태(`compatible` -> `sky`, `unknown` -> `butter`, `incompatible` -> `coral`)에 따른 상태 닷을 표시한다.
+  - 추천 결과 조합 카드와 플랜 행의 보더 및 섀도우를 GDS 테마에 맞춰 부드럽게 개선한다.
+  - 배정된 기능(assignment)을 카드 내 인라인 칩 형태로 정돈하여 가독성을 높인다.
+  - 예산 요약 블록을 은은한 라벤더 배경 상자로 분리한다.
+  - 결과 마운트 시 `headingRef.scrollIntoView({ behavior: 'smooth' })`로 시선이 결과 영역으로 자연스럽게 유도되도록 한다.
+  - 플랜 상세 다이얼로그(`PlanDetailDialog`)에 백드롭 블러(`backdrop-filter: blur(6px)`)와 18px 라운드 카드 디자인을 적용하고, 내부 각 섹션을 깔끔한 카드 블록으로 분리한다.
+
+### Testing
+
+- `frontend`: `npm test` — 170 passed.
+- `frontend`: `npm run build` — TypeScript 빌드 및 Vite 번들링 통과.
+- `frontend`: `npm run lint` — 통과 (oxlint).
+- `backend`: `uv run pytest` — 501 passed.
+
+## High-end Tech Minimalist Refinement (Linear / Vercel Tone)
+
+### Goal
+
+초기 GDS 파스텔 톤과 둥근 서체(Gowun Dodum), 과도한 알약(Pill) 형태 등으로 인해 다소 저렴해 보이거나 장난감처럼 느껴지던 시각적 인상을 개선한다. Linear / Vercel 스타일의 **모던 하이엔드 엔지니어링 툴 감성(정제된 타이포그래피, 슬레이트 모노톤, 정돈된 직사각형 라운딩 칩, 좌측 액센트 바)**으로 디자인을 전면 고도화한다. 기존 기능 및 접근성 테스트는 100% 보존한다.
+
+### Decisions
+
+- **서체 교체**:
+  - `Gowun Dodum`(아동/수필용 둥근 서체)을 제거하고, 엔지니어링 SaaS의 표준이자 기하학적 정밀성을 가진 `Pretendard` 웹폰트로 교체.
+  - 레전드 및 섹션 라벨에 엔지니어링 대시보드 스타일의 11~13px 볼드 대문자(`text-transform: uppercase`, `letter-spacing: 0.05em`) 적용.
+- **색상 및 배경 정리**:
+  - body 배경의 무지개빛 오로라 radial gradient를 제거하고, 정갈하고 차분한 `#fafbfc` 오프화이트 캔버스와 선명한 텍스트 대비(`#0f172a`, `#334155`)로 전환.
+  - 상단 쉘의 무지개 그라데이션 라인을 제거하고, `GengarileoLogo`를 `variant="dark"`(단색 모노톤)로 배치하여 진중한 브랜드 톤 형성.
+  - 헤더의 과도한 글래스모피즘 박스 대신 컴팩트하고 정돈된 상단 바 구조로 슬림화.
+- **형태 및 컴포넌트 규격화**:
+  - 과도했던 9999px 알약(Pill) 형태들을 6~10px의 정돈된 직사각형 라운딩(Tech Chip)으로 전면 교체.
+  - 대역폭 / 예산 프리셋 버튼을 8px 라운딩의 단정한 직사각 세그먼트 버튼으로 변경.
+  - 기능 선택 카드(`.featureCard`)는 10px 라운딩과 1px 뉴트럴 보더, 선택 시 인디고 블랙 인셋 보더(`box-shadow: 0 0 0 1px #0f172a`)로 Linear 감성의 단단한 느낌 부여.
+  - 메인 CTA 제출 버튼을 무지개 파스텔 대신 묵직한 솔리드 다크(`#0f172a`) 및 8px 라운딩으로 변경.
+- **추천 결과(RecommendationResult) 영역 정돈**:
+  - 폼과 일치하도록 최대 너비를 680px로 통일.
+  - 파스텔 무지개 칩을 차분한 슬레이트 그레이 테크 칩(`background: #f1f5f9; border: 1px solid #e2e8f0; color: #334155; border-radius: 6px`)으로 변경.
+  - `.stack` 카드에 좌측 4px 솔리드 액센트 바(`compatible`: 에메랄드, `unknown`: 앰버, `incompatible`: 레드)를 적용하여 상태를 전문적이고 직관적으로 전달.
+  - `.badge`를 6px 라운딩의 컴팩트한 엔지니어링 배지(`font-size: 12px; font-weight: 600`)로 변경.
+  - 플랜 상세 다이얼로그(`PlanDetailDialog`)를 12px 라운딩, 차분한 슬레이트 배경 블록, 딥 블루 링크로 정돈.
+
+### Testing
+
+- `frontend`: `npm test` — 170 passed (14 test files).
+- `frontend`: `npm run lint` — 통과 (oxlint).
+- `frontend`: `npm run build` — TypeScript 빌드 및 Vite 번들링 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+## Section Header Typography & Quantity Spacing Fix
+
+### Goal
+
+1. '1. 필요한 기능', '2. 사용량 조건', '3. 월 예산'의 폰트 크기/굵기/색상이 불일치하던 문제를 해결하고 일관된 섹션 타이틀로 통일한다.
+2. 2번 '사용량 조건' 내의 '월 트래픽(대역폭)' 및 개별 수량 입력칸 사이의 답답했던 여백을 편안하고 구조적으로 개선한다.
+
+### Decisions
+
+- **섹션 헤더 타이포그래피 통일 (`.legend`)**:
+  - `AmountField.tsx`의 `<legend>`에 `legendPrefix` 존재 여부에 따라 최상위 섹션 헤더(`styles.legend`)와 하위 필드 라벨(`styles.subLegend`)을 구분하도록 클래스를 부여.
+  - `RequirementForm.module.css`에서 `.legend` 스타일을 `font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.015em;`로 통일하여 1, 2, 3번이 정확히 동일한 크기, 굵기, 색상으로 렌더링되도록 함.
+- **하위 라벨 및 여백 구조화 (`.subLegend`, `.group .amount`)**:
+  - 2번 사용량 조건 내의 '월 트래픽(대역폭)', '파일 저장 용량' 등의 라벨에 `.subLegend`(`font-size: 13.5px; font-weight: 600; color: #334155;`)를 적용하여 2번 대제목보다 튀지 않도록 시각적 위계를 정리.
+  - `.group .amount`에 `padding: 16px 0 0; border-top: 1px solid #f1f5f9; gap: 10px;`를 적용하여 2번 내의 입력 필드 간에 답답함 없이 은은한 구분선과 넉넉한 수직 여백이 확보되도록 개선.
+  - `.card`의 메인 섹션 간 간격을 `24px`로 확장하고, 힌트 텍스트(`.hint`)의 상단 여백(`margin-top: 2px`)을 다듬어 입력 컨트롤과의 간격을 정돈.
+
+### Testing
+
+- `frontend`: `npm test` — 170 passed.
+- `frontend`: `npm run lint` — 통과 (oxlint).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+
+
+

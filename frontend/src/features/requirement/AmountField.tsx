@@ -1,4 +1,5 @@
 import type { QuantityUnit } from '../../lib/units.ts'
+import type { BudgetCurrency } from './formState.ts'
 import styles from './RequirementForm.module.css'
 
 type Preset = {
@@ -16,7 +17,9 @@ type AmountFieldProps = {
   error?: string
   prefix?: string
   unit?: QuantityUnit
+  currency?: BudgetCurrency
   presets: readonly Preset[]
+  onCurrencyChange?: (currency: BudgetCurrency) => void
   onAmountChange: (amount: string) => void
   onUnitChange?: (unit: QuantityUnit) => void
   onPreset: (preset: Preset) => void
@@ -32,7 +35,9 @@ export function AmountField({
   error,
   prefix,
   unit,
+  currency,
   presets,
+  onCurrencyChange,
   onAmountChange,
   onUnitChange,
   onPreset,
@@ -45,10 +50,30 @@ export function AmountField({
 
   return (
     <fieldset className={styles.amount}>
-      <legend>
+      <legend className={legendPrefix ? styles.legend : styles.subLegend}>
         {legendPrefix ? <span aria-hidden="true">{legendPrefix}</span> : null}
         <span id={legendId}>{label}</span>
       </legend>
+      {onCurrencyChange ? (
+        <div className={styles.presets} role="group" aria-label="예산 통화">
+          <button
+            className={styles.preset}
+            type="button"
+            aria-pressed={currency === 'USD'}
+            onClick={() => onCurrencyChange('USD')}
+          >
+            USD
+          </button>
+          <button
+            className={styles.preset}
+            type="button"
+            aria-pressed={currency === 'KRW'}
+            onClick={() => onCurrencyChange('KRW')}
+          >
+            원
+          </button>
+        </div>
+      ) : null}
       <div className={styles.amountRow}>
         {prefix ? (
           <span className={styles.prefix} aria-hidden="true">

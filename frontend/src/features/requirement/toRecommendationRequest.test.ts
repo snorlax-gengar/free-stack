@@ -18,14 +18,14 @@ function values(
 }
 
 describe('toRecommendationRequest', () => {
-  it('converts 500 MB, 1 GB, and 10 GB with decimal SI units', () => {
+  it('converts 500 MB, 1 GB, and the 5GB bandwidth cap with decimal SI units', () => {
     const result = toRecommendationRequest(
       values({
         features: ['database', 'file-uploads'],
+        bandwidthRange: 'up-to-5',
         quantities: {
           databaseSize: { amount: '500', unit: 'MB' },
           fileStorage: { amount: '1', unit: 'GB' },
-          monthlyBandwidth: { amount: '10', unit: 'GB' },
         },
       }),
     )
@@ -36,17 +36,33 @@ describe('toRecommendationRequest', () => {
     }
     expect(result.request.database_size_bytes).toBe(500_000_000)
     expect(result.request.file_storage_bytes).toBe(1_000_000_000)
-    expect(result.request.monthly_bandwidth_bytes).toBe(10_000_000_000)
+    expect(result.request.monthly_bandwidth_bytes).toBe(5_000_000_000)
   })
 
   it('maps an empty budget to null, zero dollars to 0 cents, and 10 dollars to 1000 cents', () => {
-    const empty = toRecommendationRequest(values({ features: ['static-frontend'], budgetUsd: '' }))
-    const zero = toRecommendationRequest(values({ features: ['static-frontend'], budgetUsd: '0' }))
-    const ten = toRecommendationRequest(values({ features: ['static-frontend'], budgetUsd: '10' }))
+    const empty = toRecommendationRequest(values({ features: ['static-frontend'], budgetAmount: '' }))
+    const zero = toRecommendationRequest(values({ features: ['static-frontend'], budgetAmount: '0' }))
+    const ten = toRecommendationRequest(values({ features: ['static-frontend'], budgetAmount: '10' }))
 
     expect(empty.ok && empty.request.monthly_budget_usd_cents).toBe(null)
     expect(zero.ok && zero.request.monthly_budget_usd_cents).toBe(0)
     expect(ten.ok && ten.request.monthly_budget_usd_cents).toBe(1000)
+  })
+
+  it('converts won to usd cents at 1400 won per dollar', () => {
+    const zero = toRecommendationRequest(
+      values({ features: ['static-frontend'], budgetCurrency: 'KRW', budgetAmount: '0' }),
+    )
+    const rate = toRecommendationRequest(
+      values({ features: ['static-frontend'], budgetCurrency: 'KRW', budgetAmount: '1400' }),
+    )
+    const open = toRecommendationRequest(
+      values({ features: ['static-frontend'], bandwidthRange: 'over-5' }),
+    )
+
+    expect(zero.ok && zero.request.monthly_budget_usd_cents).toBe(0)
+    expect(rate.ok && rate.request.monthly_budget_usd_cents).toBe(100)
+    expect(open.ok && open.request.monthly_bandwidth_bytes).toBe(6_000_000_000)
   })
 
   it('omits an empty quantity and rejects zero, decimals, signs, text, and exponents', () => {

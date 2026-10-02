@@ -88,11 +88,11 @@ describe('RequirementForm', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('shows the success status without the response body', () => {
-    renderForm({ succeeded: true })
+  it('announces submitting and does not repeat a success message', () => {
+    renderForm({ submitting: true })
 
-    const status = screen.getByRole('status')
-    expect(status.textContent).toContain('추천 결과를 받았습니다.')
+    expect(screen.getByRole('status').textContent).toContain('추천 받는 중…')
+    expect(screen.queryByText('추천 결과를 받았습니다.')).toBeNull()
   })
 
   it('shows the mapped invalid-requirement message and hides the server message', () => {
@@ -121,7 +121,6 @@ function renderForm(overrides: Partial<RequirementFormProps> = {}) {
   render(
     <RequirementForm
       submitting={overrides.submitting ?? false}
-      succeeded={overrides.succeeded ?? false}
       error={'error' in overrides ? overrides.error : null}
       onSubmit={onSubmit}
     />,

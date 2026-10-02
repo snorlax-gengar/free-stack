@@ -11,6 +11,12 @@
   max-width: 720px;
   min-width: 0;
   margin-top: 28px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.result :is(h2, h3, h4, p, ul, ol, details, summary) {
+  margin: 0;
 }
 
 .heading,
@@ -23,7 +29,7 @@
 .assignment,
 .roleSummary,
 .candidate p {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .heading {
@@ -38,9 +44,27 @@
 }
 
 .requirement,
+.composition,
 .summary {
   color: #1c2430;
   font-size: 16px;
+}
+
+.requirement,
+.composition {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.conditionList {
+  display: grid;
+  gap: 8px;
+  padding-left: 1.2em;
+}
+
+.conditionLabel {
+  font-weight: 700;
 }
 
 .featureList,
@@ -66,7 +90,7 @@
 .statusNote p,
 .statusList {
   margin: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .statusList {
@@ -78,6 +102,16 @@
 .groupTitle {
   font-size: 18px;
   font-weight: 700;
+}
+
+.groupLabel,
+.statusTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.groupLabel {
+  color: #5c6775;
 }
 
 .stack,
@@ -128,7 +162,7 @@
 .assignment,
 .candidate,
 .roleSummary {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .assignment,
@@ -152,7 +186,11 @@
 }
 
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
   padding: 2px 8px;
   border: 1px solid #c5ceda;
   border-radius: 999px;
@@ -193,9 +231,36 @@
 }
 
 .roleSummary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   font-size: 16px;
   font-weight: 700;
+  list-style: none;
   cursor: pointer;
+}
+
+.roleSummary::marker {
+  content: none;
+}
+
+.roleSummary::-webkit-details-marker {
+  display: none;
+}
+
+.roleSummary::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 0.45em;
+  height: 0.45em;
+  margin-right: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-0.1em) rotate(-45deg);
+}
+
+.role[open] > .roleSummary::before {
+  transform: translateY(0.1em) rotate(45deg);
 }
 
 .roleSummary:focus {

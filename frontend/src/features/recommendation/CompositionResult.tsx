@@ -23,15 +23,15 @@ export function CompositionResult({ composition, plans, onOpenPlan }: Compositio
   const stackCount = groups.reduce((count, group) => count + group.stacks.length, 0)
 
   return (
-    <div className={styles.composition} role="region" aria-label="구성">
+    <>
       <p className={styles.summary}>
         조합 {stackCount}개를 구성했습니다. 표시 순서는 순위가 아닙니다.
       </p>
       {groups.map((group) => (
-        <section key={group.status} className={styles.group}>
-          <h3 className={styles.groupTitle}>
+        <section key={group.status} className={styles.group} aria-label={labelOf(group.status, evaluationStatusLabels)}>
+          <p className={styles.groupLabel}>
             {labelOf(group.status, evaluationStatusLabels)} ({group.stacks.length})
-          </h3>
+          </p>
           {group.stacks.map((stack) => {
             const budget = stack.budget_check === null ? null : describeStackBudget(stack.budget_check)
             return (
@@ -55,7 +55,7 @@ export function CompositionResult({ composition, plans, onOpenPlan }: Compositio
           })}
         </section>
       ))}
-    </div>
+    </>
   )
 }
 

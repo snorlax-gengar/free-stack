@@ -35,18 +35,8 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className={styles.heading}>
         추천 결과
       </h2>
-      <div className={styles.requirement}>
-        <ul className={styles.featureList} aria-label="선택한 기능">
-          {requirement.features.map((feature) => (
-            <li key={feature}>{featureLabels[feature]}</li>
-          ))}
-        </ul>
-        <QuantityLine metric="file-storage-bytes" bytes={requirement.file_storage_bytes} />
-        <QuantityLine metric="database-size-bytes" bytes={requirement.database_size_bytes} />
-        <QuantityLine metric="bandwidth-bytes" bytes={requirement.monthly_bandwidth_bytes} />
-        <p>{formatBudgetLimit(requirement.monthly_budget_usd_cents)}</p>
-      </div>
-      {renderComposition(response, setOpenPlanId)}
+      <RequestSummary requirement={requirement} />
+      <CompositionSection response={response} onOpenPlan={setOpenPlanId} />
       <UnevaluatedFeatures features={response.unevaluated_features} />
       {response.roles.length > 0 ? (
         <RoleEvaluations
@@ -63,6 +53,33 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
   )
 }
 
+function RequestSummary({ requirement }: { requirement: RecommendationResponse['requirement'] }) {
+  const headingId = useId()
+  return (
+    <section className={styles.requirement} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.groupTitle}>
+        요청 조건
+      </h3>
+      <ul className={styles.conditionList}>
+        <li>
+          <p className={styles.conditionLabel}>기능</p>
+          <ul className={styles.featureList} aria-label="선택한 기능">
+            {requirement.features.map((feature) => (
+              <li key={feature}>{featureLabels[feature]}</li>
+            ))}
+          </ul>
+        </li>
+        <QuantityLine metric="file-storage-bytes" bytes={requirement.file_storage_bytes} />
+        <QuantityLine metric="database-size-bytes" bytes={requirement.database_size_bytes} />
+        <QuantityLine metric="bandwidth-bytes" bytes={requirement.monthly_bandwidth_bytes} />
+        <li>
+          <p>{formatBudgetLimit(requirement.monthly_budget_usd_cents)}</p>
+        </li>
+      </ul>
+    </section>
+  )
+}
+
 function QuantityLine({
   metric,
   bytes,
@@ -74,9 +91,29 @@ function QuantityLine({
     return null
   }
   return (
-    <p>
-      {limitMetricLabels[metric]} {formatBytes(bytes)}
-    </p>
+    <li>
+      <p>
+        {limitMetricLabels[metric]} {formatBytes(bytes)}
+      </p>
+    </li>
+  )
+}
+
+function CompositionSection({
+  response,
+  onOpenPlan,
+}: {
+  response: RecommendationResponse
+  onOpenPlan: (planId: string) => void
+}) {
+  const headingId = useId()
+  return (
+    <section className={styles.composition} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.groupTitle}>
+        조합
+      </h3>
+      {renderComposition(response, onOpenPlan)}
+    </section>
   )
 }
 
@@ -98,10 +135,10 @@ function renderComposition(response: RecommendationResponse, onOpenPlan: (planId
 function BlockedComposition({ composition }: { composition: Composition }) {
   const headingId = useId()
   return (
-    <section className={styles.statusNote} aria-labelledby={headingId}>
-      <h3 id={headingId} className={styles.groupTitle}>
+    <div className={styles.statusNote}>
+      <h4 id={headingId} className={styles.statusTitle}>
         {labelOf('blocked', compositionStatusLabels)}
-      </h3>
+      </h4>
       <p>다음 역할에서 사용 가능한 플랜을 찾지 못했습니다.</p>
       {composition.blocked_roles.length === 0 ? null : (
         <ul className={styles.statusList} aria-label="막힌 역할">
@@ -113,7 +150,7 @@ function BlockedComposition({ composition }: { composition: Composition }) {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -121,16 +158,16 @@ function TooManyCombinations({ count }: { count: number }) {
   const headingId = useId()
   const formatted = formatCombinationCount(count)
   return (
-    <section className={styles.statusNote} aria-labelledby={headingId}>
-      <h3 id={headingId} className={styles.groupTitle}>
+    <div className={styles.statusNote}>
+      <h4 id={headingId} className={styles.statusTitle}>
         {labelOf('too-many-combinations', compositionStatusLabels)}
-      </h3>
+      </h4>
       {formatted === null ? null : (
         <p>
           현재 조건에서 {formatted}개의 조합이 만들어질 수 있어 모든 조합을 표시하지 않았습니다.
         </p>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -144,12 +181,12 @@ function formatCombinationCount(count: number): string | null {
 function NoRoles() {
   const headingId = useId()
   return (
-    <section className={styles.statusNote} aria-labelledby={headingId}>
-      <h3 id={headingId} className={styles.groupTitle}>
+    <div className={styles.statusNote}>
+      <h4 id={headingId} className={styles.statusTitle}>
         {labelOf('no-roles', compositionStatusLabels)}
-      </h3>
+      </h4>
       <p>선택한 기능 중 현재 추천 엔진에서 평가하는 기능이 없습니다.</p>
-    </section>
+    </div>
   )
 }
 

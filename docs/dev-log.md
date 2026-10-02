@@ -1558,3 +1558,27 @@ Plan Detail Dialog가 StrictMode에서 열리자마자 닫히지 않게 하고, 
 - `uv run pytest` — 501 passed.
 - `git diff --check` — 통과. CRLF 경고만 있다.
 - 브라우저에서 `blocked`와 `no-roles`를 조작하는 승인이 중간에 끊겨 375/768/1280 확인은 하지 못했다. 현재 seed의 최대 `combination_count`는 2이고 서버 한도는 10이라, 한도를 바꾸지 않으면 `too-many-combinations`는 라이브 응답으로 나오지 않는다.
+
+## FREE-014 PR3-4-3 Result Structure / Presentation Cleanup
+
+### Goal
+
+추천 결과의 정보 구조와 간격을 정리한다. 추천 로직과 API는 바꾸지 않고, PR3-4-1 Dialog와 PR3-4-2 비정상 상태 설명은 유지한다.
+
+### Implemented
+
+- 요청 조건은 `h3`와 `기능` 라벨 아래의 기존 feature 목록, 수량 formatter, `formatBudgetLimit`으로 보여 준다.
+- `h2 추천 결과` 아래에 `h3 조합`이 하나 있다. 상태 묶음 `충족 (1)`은 heading이 아니라 라벨이다. 개별 Stack은 `h4`다. `조합 불가`, `조합이 너무 많음`, `평가할 역할 없음`은 그 섹션 안의 `h4`다.
+- RequirementForm의 `추천 결과를 받았습니다.`와 `succeeded` prop을 제거했다. 제출 중 `role="status"`와 오류 `role="alert"`는 남긴다.
+- Status badge는 `inline-flex`, `width: fit-content`, `justify-self: start`라서 grid/flex 부모에서 내용 너비로 남는다.
+- 결과 영역 heading, paragraph, list, details, summary의 기본 margin은 0이다. 간격은 기존 grid gap을 쓴다. 한글은 `word-break: keep-all`로 어절 경계에서 줄바꿈한다.
+- summary는 최소 높이 44px이다. `display: flex`가 기본 disclosure marker를 지우므로, 같은 열림/닫힘 동작의 chevron을 붙였다.
+
+### Testing
+
+- `npm test` — 160 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과. `src/test/dialog.ts`의 `no-this-alias` warning은 기존 stub이고 exit code는 0이다.
+- `uv run pytest` — 501 passed.
+- `git diff --check` — 통과. CRLF 경고만 있다.
+- 브라우저: 375에서 blocked와 no-roles, 375/768/1280에서 composed를 확인했다. badge는 46px이고 카드 전체 폭이 아니다. summary 높이는 44px이다. Dialog는 StrictMode 개발 서버에서 열리고, 닫으면 상세 보기 버튼으로 focus가 돌아온다. 출처 클릭은 URL hash를 바꾸지 않는다. `too-many-combinations`는 서버 한도 10과 현재 seed로는 라이브 응답이 되지 않는다.

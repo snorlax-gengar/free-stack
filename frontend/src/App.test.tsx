@@ -60,9 +60,8 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText('정적 프론트엔드'))
     fireEvent.click(screen.getByRole('button', { name: '무료 스택 추천받기' }))
 
-    const status = await screen.findByText('추천 결과를 받았습니다.')
-    expect(status.getAttribute('role')).toBe('status')
-    expect(screen.getByRole('heading', { name: '추천 결과' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '추천 결과' })).toBeTruthy()
+    expect(screen.queryByText('추천 결과를 받았습니다.')).toBeNull()
     expect(screen.getByRole('heading', { name: 'Supabase Platform' })).toBeTruthy()
     expect(postRecommendation).toHaveBeenCalledWith(
       expect.objectContaining({

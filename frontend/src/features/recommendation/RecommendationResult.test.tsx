@@ -35,6 +35,9 @@ describe('RecommendationResult', () => {
     expect(heading.tabIndex).toBe(-1)
     expect(document.activeElement).toBe(heading)
 
+    const request = screen.getByRole('region', { name: '요청 조건' })
+    expect(within(request).getByRole('heading', { level: 3, name: '요청 조건' })).toBeTruthy()
+    expect(within(request).getByText('기능', { exact: true })).toBeTruthy()
     const features = screen.getByRole('list', { name: '선택한 기능' })
     expect(within(features).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       '데이터베이스',
@@ -42,7 +45,10 @@ describe('RecommendationResult', () => {
       '실시간',
     ])
     expect(screen.getByText('예산 조건 없음')).toBeTruthy()
-    expect(within(screen.getByRole('region', { name: '구성' })).getByRole('heading', { name: '충족 (1)' })).toBeTruthy()
+    const composition = screen.getByRole('region', { name: '조합' })
+    expect(within(composition).getAllByRole('heading', { level: 3, name: '조합' })).toHaveLength(1)
+    expect(within(composition).getByText('충족 (1)')).toBeTruthy()
+    expect(within(composition).queryByRole('heading', { name: '충족 (1)' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'Supabase Platform' })).toBeTruthy()
 
     const plans = screen.getByRole('list', { name: '플랜' })
@@ -66,7 +72,7 @@ describe('RecommendationResult', () => {
     render(<RecommendationResult response={fixtureF} />)
 
     expect(screen.getByText('월 $0 상한')).toBeTruthy()
-    expect(within(screen.getByRole('region', { name: '구성' })).getByRole('heading', { name: '확인 필요 (1)' })).toBeTruthy()
+    expect(within(screen.getByRole('region', { name: '조합' })).getByText('확인 필요 (1)')).toBeTruthy()
     expect(screen.getByText('가격 확인 필요')).toBeTruthy()
     expect(screen.queryByText(/확인된 합계/)).toBeNull()
   })

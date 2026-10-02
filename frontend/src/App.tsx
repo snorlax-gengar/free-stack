@@ -21,7 +21,6 @@ export default function App() {
   const [status, setStatus] = useState<BackendStatus>('checking')
   const submission = useRecommendationSubmit()
   const submitting = submission.state.status === 'submitting'
-  const succeeded = submission.state.status === 'success'
   const error = submission.state.status === 'error' ? submission.state.error : null
 
   useEffect(() => {
@@ -56,7 +55,6 @@ export default function App() {
       </header>
       <RequirementForm
         submitting={submitting}
-        succeeded={succeeded}
         error={error}
         onSubmit={(request) => {
           void submission.submit(request)

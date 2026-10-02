@@ -16,12 +16,11 @@ import { toRecommendationRequest, type RequestField } from './toRecommendationRe
 
 export type RequirementFormProps = {
   submitting: boolean
-  succeeded: boolean
   error: unknown
   onSubmit: (request: RecommendationRequest) => void
 }
 
-export function RequirementForm({ submitting, succeeded, error, onSubmit }: RequirementFormProps) {
+export function RequirementForm({ submitting, error, onSubmit }: RequirementFormProps) {
   const [values, dispatch] = useReducer(formReducer, initialFormValues)
   const [errors, setErrors] = useState<readonly { field: RequestField; message: string }[]>([])
 
@@ -120,11 +119,6 @@ export function RequirementForm({ submitting, succeeded, error, onSubmit }: Requ
         {submitting ? (
           <p className={styles.status} role="status">
             추천 받는 중…
-          </p>
-        ) : null}
-        {succeeded ? (
-          <p className={styles.status} role="status">
-            추천 결과를 받았습니다.
           </p>
         ) : null}
         {error != null ? (

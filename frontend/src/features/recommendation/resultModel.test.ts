@@ -17,6 +17,7 @@ import {
 import {
   byStatus,
   describeStackBudget,
+  checkSourceIds,
   evaluationChecks,
   describeCheckDetail,
   formatBudgetLimit,
@@ -152,6 +153,70 @@ describe('sourceNumber', () => {
     expect(sourceNumber(sources, 'render-compute-plans')).toBe(1)
     expect(sourceNumber(sources, 'render-free')).toBe(2)
     expect(sourceNumber(sources, 'missing-source')).toBeNull()
+  })
+})
+
+describe('checkSourceIds', () => {
+  it('reads quantity limit sources once and ignores a capability check', () => {
+    const role = fixtureG.roles.find((item) => item.role === 'file-uploads')
+    const evaluation = role?.compatible[0]
+    expect(evaluation).toBeDefined()
+    if (evaluation === undefined) {
+      return
+    }
+    expect(checkSourceIds(evaluation.capability_check)).toEqual([])
+    expect(checkSourceIds(evaluation.quantity_checks[0]!)).toEqual(['cloudflare-r2-pricing'])
+    expect(checkSourceIds(evaluation.global_quantity_checks[0]!)).toEqual(['cloudflare-r2-pricing'])
+  })
+
+  it('keeps distinct limit sources in order and skips a missing budget price', () => {
+    const pages = fixtureG.roles.find((item) => item.role === 'static-frontend')
+    const mismatch = pages?.unknown[0]?.global_quantity_checks.find(
+      (item) => item.reason_code === 'limit-period-mismatch',
+    )
+    expect(checkSourceIds(mismatch ?? { reason_code: 'capability-provided', outcome: 'satisfied' })).toEqual([
+      'cloudflare-pages-limits',
+    ])
+    const priced = {
+      reason_code: 'within-budget',
+      outcome: 'satisfied',
+      pricing: {
+        plan_id: 'priced-plan',
+        monthly_base_fee_usd_cents: 500,
+        exceed_behaviors: [],
+        source_id: 'source',
+      },
+    } satisfies PlanBudgetCheck
+    expect(checkSourceIds(priced)).toEqual(['source'])
+    expect(checkSourceIds({ ...priced, pricing: null })).toEqual([])
+    const repeated = {
+      reason_code: 'within-limit',
+      outcome: 'satisfied',
+      limit: {
+        plan_id: 'plan',
+        metric: 'requests',
+        period: 'month',
+        value: 1,
+        source_id: 'first',
+      },
+      other_period_limits: [
+        {
+          plan_id: 'plan',
+          metric: 'requests',
+          period: 'day',
+          value: 2,
+          source_id: 'first',
+        },
+        {
+          plan_id: 'plan',
+          metric: 'requests',
+          period: 'day',
+          value: 3,
+          source_id: 'second',
+        },
+      ],
+    } satisfies PlanEvaluation['quantity_checks'][number]
+    expect(checkSourceIds(repeated)).toEqual(['first', 'second'])
   })
 })
 

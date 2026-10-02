@@ -23,6 +23,7 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const headingId = useId()
   const [openPlanId, setOpenPlanId] = useState<string | null>(null)
+  const [focusSourceId, setFocusSourceId] = useState<string | null>(null)
   const { requirement } = response
   const openDetail = openPlanId === null ? undefined : response.plans[openPlanId]
 
@@ -30,24 +31,42 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
     headingRef.current?.focus()
   }, [])
 
+  function openPlan(planId: string) {
+    setFocusSourceId(null)
+    setOpenPlanId(planId)
+  }
+
+  function openPlanSource(planId: string, sourceId: string) {
+    setFocusSourceId(sourceId)
+    setOpenPlanId(planId)
+  }
+
   return (
     <section className={styles.result} aria-labelledby={headingId}>
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className={styles.heading}>
         추천 결과
       </h2>
       <RequestSummary requirement={requirement} />
-      <CompositionSection response={response} onOpenPlan={setOpenPlanId} />
+      <CompositionSection response={response} onOpenPlan={openPlan} />
       <UnevaluatedFeatures features={response.unevaluated_features} />
       {response.roles.length > 0 ? (
         <RoleEvaluations
           roles={response.roles}
           plans={response.plans}
-          onOpenPlan={setOpenPlanId}
+          onOpenPlan={openPlan}
+          onOpenPlanSource={openPlanSource}
           initiallyOpenRoles={response.composition.blocked_roles.map((role) => role.feature)}
         />
       ) : null}
       {openDetail === undefined ? null : (
-        <PlanDetailDialog detail={openDetail} onClose={() => setOpenPlanId(null)} />
+        <PlanDetailDialog
+          detail={openDetail}
+          focusSourceId={focusSourceId}
+          onClose={() => {
+            setOpenPlanId(null)
+            setFocusSourceId(null)
+          }}
+        />
       )}
     </section>
   )

@@ -9,12 +9,14 @@ import {
 } from '../../labels/recommendation.ts'
 import {
   byStatus,
+  checkSourceIds,
   describeCheckDetail,
   evaluationChecks,
   planLabel,
   type CheckScope,
   type EvaluationCheck,
 } from './resultModel.ts'
+import { SourceCitation } from './SourceCitation.tsx'
 import { StatusBadge } from './StatusBadge.tsx'
 import styles from './RecommendationResult.module.css'
 
@@ -29,6 +31,7 @@ export type RoleEvaluationsProps = {
   roles: RoleEvaluation[]
   plans: RecommendationResponse['plans']
   onOpenPlan: (planId: string) => void
+  onOpenPlanSource: (planId: string, sourceId: string) => void
   initiallyOpenRoles?: readonly RoleEvaluation['role'][]
 }
 
@@ -36,6 +39,7 @@ export function RoleEvaluations({
   roles,
   plans,
   onOpenPlan,
+  onOpenPlanSource,
   initiallyOpenRoles = [],
 }: RoleEvaluationsProps) {
   const openRoles = new Set(initiallyOpenRoles)
@@ -85,7 +89,18 @@ export function RoleEvaluations({
                       <StatusBadge status={evaluation.status} />
                       <ul className={styles.checks}>
                         {evaluationChecks(evaluation).map((item, index) => (
-                          <li key={`${item.scope}-${index}`}>{formatCheck(item)}</li>
+                          <li key={`${item.scope}-${index}`}>
+                            {formatCheck(item)}
+                            {checkSourceIds(item.check).map((sourceId) => (
+                              <SourceCitation
+                                key={sourceId}
+                                planId={evaluation.plan_id}
+                                sources={detail?.sources ?? []}
+                                sourceId={sourceId}
+                                onUnavailable={onOpenPlanSource}
+                              />
+                            ))}
+                          </li>
                         ))}
                       </ul>
                     </li>

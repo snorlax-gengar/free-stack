@@ -1582,3 +1582,28 @@ Plan Detail Dialog가 StrictMode에서 열리자마자 닫히지 않게 하고, 
 - `uv run pytest` — 501 passed.
 - `git diff --check` — 통과. CRLF 경고만 있다.
 - 브라우저: 375에서 blocked와 no-roles, 375/768/1280에서 composed를 확인했다. badge는 46px이고 카드 전체 폭이 아니다. summary 높이는 44px이다. Dialog는 StrictMode 개발 서버에서 열리고, 닫으면 상세 보기 버튼으로 focus가 돌아온다. 출처 클릭은 URL hash를 바꾸지 않는다. `too-many-combinations`는 서버 한도 10과 현재 seed로는 라이브 응답이 되지 않는다.
+
+## FREE-014 PR3-4-4 Role Evaluation Source Links
+
+### Goal
+
+역할 평가의 후보 검사에 출처가 있으면 `[출처 n]`을 보여 준다. 번호와 클릭 동작은 Plan Detail의 출처 목록과 같다. 새 dialog는 만들지 않는다.
+
+### Implemented
+
+- `checkSourceIds`가 quantity의 `limit.source_id`, `other_period_limits[].source_id`, budget의 `pricing.source_id`만 뽑는다. capability 검사는 빈 배열이다. 같은 id는 처음 순서를 유지한 채 한 번만 남긴다. `pricing`이 없으면 빈 배열이다.
+- 번호는 해당 plan의 `sources` 배열 순서다. `sourceNumber`가 `null`이면 링크를 그리지 않는다. 응답에 plan detail이 없거나 source id를 찾지 못하면 검사 문장만 남는다.
+- `[출처 n]`은 `SourceCitation` 하나다. Plan Detail의 가격·주의사항 인용과 역할 평가 인용이 같은 컴포넌트를 쓴다. 보이는 이름과 accessible name은 `[출처 n]`이다.
+- 출처 `<li>` id는 `source-${planId}-${number}`다. 클릭은 기본 anchor 이동을 막고, 그 요소가 이미 DOM에 있으면 focus만 옮긴다. 없으면 기존 Plan Detail Dialog를 열고 해당 출처로 focus한다. URL hash는 바꾸지 않는다.
+- Dialog mount effect의 dependency는 빈 배열이다. 열릴 때의 `detail`과 `focusSourceId`는 ref 초기값으로 읽고, `focusSourceId`를 dependency에 넣지 않는다. cleanup의 `closedByCleanup` 동작은 그대로다.
+- 후보가 없는 역할의 `사용 가능한 후보가 없습니다.` 분기는 바꾸지 않았다. 검사 링크는 `white-space: nowrap`이다.
+- Fixture 파일은 바꾸지 않았다. 출처가 둘인 경우와 없는 source id는 테스트에서 기존 fixture를 복제한 값이다. API에 없는 필드는 넣지 않았다.
+
+### Testing
+
+- `npm test` — 165 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과. `src/test/dialog.ts`의 `no-this-alias` warning은 기존 stub이고 exit code는 0이다.
+- `uv run pytest` — 501 passed. 이번 변경에 backend 파일은 없다.
+- `git diff --check` — 통과. CRLF 경고만 있다.
+- 브라우저: 정적 프론트엔드와 파일 업로드, 대역폭 10 GB 결과에서 역할 검사 `[출처 1]`이 보인다. 기능 충족 문장과 `한도 정보 없음`에는 링크가 없다. 375/768/1280에서 결과 폭은 688px이고 가로 overflow는 없다. 역할 인용을 클릭하면 Cloudflare · R2 · Free dialog가 열리고 출처 항목으로 focus가 가며 URL은 `http://127.0.0.1:5173/`이다. 닫으면 클릭한 `[출처 1]`로 focus가 돌아온다. Dialog 안의 출처 인용도 hash를 바꾸지 않는다. 후보 없음과 `blocked`/`no-roles`/`too-many-combinations`는 이번 브라우저 확인에서 다시 조작하지 않았다.

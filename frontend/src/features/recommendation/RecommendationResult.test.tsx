@@ -206,10 +206,110 @@ describe('RecommendationResult', () => {
     expect(within(details).queryByText('무료')).toBeNull()
   })
 
+  it('cites a check source and leaves a sourceless check unchanged', () => {
+    render(<RecommendationResult response={fixtureG} />)
+
+    const uploads = screen.getByText('파일 업로드 — 충족 1 · 미충족 1').closest('details')
+    expect(uploads).not.toBeNull()
+    if (uploads === null) {
+      return
+    }
+    const exceeded = within(uploads).getByText('공통 사용량: 미충족 — 대역폭 월 5 GB · 한도 초과').closest('li')
+    expect(exceeded).not.toBeNull()
+    if (exceeded === null) {
+      return
+    }
+    expect(within(exceeded).getByRole('link', { name: '[출처 1]' })).toBeTruthy()
+    for (const line of within(uploads).getAllByText('기능: 충족 — 기능 제공')) {
+      expect(within(line).queryByRole('link')).toBeNull()
+    }
+    const missing = screen.getByText(/한도 정보 없음/).closest('li')
+    expect(missing).not.toBeNull()
+    if (missing === null) {
+      return
+    }
+    expect(within(missing).queryByRole('link')).toBeNull()
+  })
+
+  it('cites every distinct source and skips an unknown source id', () => {
+    const response = structuredClone(fixtureG) as RecommendationResponse
+    const evaluation = response.roles.find((role) => role.role === 'file-uploads')?.compatible[0]
+    const check = evaluation?.quantity_checks[0]
+    const plan = response.plans['cloudflare-r2-free']
+    const exceeded = response.roles.find((role) => role.role === 'file-uploads')?.incompatible[0]?.global_quantity_checks[0]
+    expect(check).toBeDefined()
+    expect(plan).toBeDefined()
+    expect(exceeded?.limit).not.toBeNull()
+    if (check === undefined || plan === undefined || exceeded?.limit == null) {
+      return
+    }
+    check.other_period_limits = [
+      {
+        plan_id: 'cloudflare-r2-free',
+        metric: 'requests',
+        period: 'month',
+        value: 2,
+        source_id: 'extra-source',
+      },
+    ]
+    plan.sources.push({
+      id: 'extra-source',
+      url: 'https://example.com/extra',
+      checked_at: '2026-09-30',
+      notes: '',
+    })
+    exceeded.limit.source_id = 'missing-source'
+    render(<RecommendationResult response={response} />)
+
+    const uploads = screen.getByText('파일 업로드 — 충족 1 · 미충족 1').closest('details')
+    expect(uploads).not.toBeNull()
+    if (uploads === null) {
+      return
+    }
+    const storage = within(uploads).getByText(/파일 저장 용량 10 GB/).closest('li')
+    expect(storage).not.toBeNull()
+    if (storage === null) {
+      return
+    }
+    expect(within(storage).getByRole('link', { name: '[출처 1]' })).toBeTruthy()
+    expect(within(storage).getByRole('link', { name: '[출처 2]' })).toBeTruthy()
+    const broken = within(uploads).getByText('공통 사용량: 미충족 — 대역폭 월 5 GB · 한도 초과').closest('li')
+    expect(broken).not.toBeNull()
+    if (broken === null) {
+      return
+    }
+    expect(within(broken).queryByRole('link')).toBeNull()
+  })
+
+  it('opens the plan source from a role citation without changing the URL hash', () => {
+    render(<RecommendationResult response={fixtureG} />)
+
+    const uploads = screen.getByText('파일 업로드 — 충족 1 · 미충족 1').closest('details')
+    expect(uploads).not.toBeNull()
+    if (uploads === null) {
+      return
+    }
+    const citation = within(uploads).getAllByRole('link', { name: '[출처 1]' })[0]
+    expect(citation).toBeDefined()
+    const hash = window.location.hash
+    fireEvent.click(citation!)
+    expect(window.location.hash).toBe(hash)
+    const dialog = screen.getByRole('dialog')
+    const source = within(dialog).getByRole('list', { name: '이 결과에 사용된 출처' }).querySelector('li')
+    expect(document.activeElement).toBe(source)
+  })
+
   it('says when a role has no evaluated candidates', () => {
     render(<RecommendationResult response={fixtureB} />)
 
     expect(screen.getByText('예약 작업 — 평가된 후보가 없습니다')).toBeTruthy()
+    const scheduled = screen.getByText('예약 작업 — 평가된 후보가 없습니다').closest('details')
+    expect(scheduled).not.toBeNull()
+    if (scheduled === null) {
+      return
+    }
+    expect(within(scheduled).getByText('사용 가능한 후보가 없습니다.')).toBeTruthy()
+    expect(within(scheduled).queryByRole('link', { name: /출처/ })).toBeNull()
   })
 
   it('does not render role evaluations when roles are empty', () => {

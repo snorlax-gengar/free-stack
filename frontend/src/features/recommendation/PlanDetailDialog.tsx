@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type MouseEvent } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { PlanDetail, Source } from '../../api/types.ts'
 import { formatUsdCents } from '../../lib/money.ts'
 import {
@@ -6,23 +6,26 @@ import {
   exceedBehaviorLabels,
   labelOf,
 } from '../../labels/recommendation.ts'
-import { formatCheckedAt, formatSourceLink, planLabel, sourceNumber } from './resultModel.ts'
+import { formatCheckedAt, formatSourceLink, planLabel, sourceElementId, sourceNumber } from './resultModel.ts'
+import { SourceCitation } from './SourceCitation.tsx'
 import styles from './RecommendationResult.module.css'
 
 export type PlanDetailDialogProps = {
   detail: PlanDetail
   onClose: () => void
+  focusSourceId?: string | null
 }
 
-export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
+export function PlanDetailDialog({ detail, onClose, focusSourceId = null }: PlanDetailDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   // close() removes `open` before the close event, and StrictMode reopens the dialog
   // before that event runs. The flag stays set until the event so a cleanup close
   // is not treated as the user dismissing the dialog.
   const closedByCleanup = useRef(false)
+  const detailRef = useRef(detail)
+  const focusSourceIdRef = useRef(focusSourceId)
   const titleId = useId()
-  const sourcePrefix = `source${useId().replaceAll(':', '')}`
   const label = planLabel(detail, detail.plan.id)
 
   useEffect(() => {
@@ -32,6 +35,7 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
       dialog.showModal()
     }
     closeButtonRef.current?.focus()
+    focusRequestedSource(detailRef.current, focusSourceIdRef.current)
     return () => {
       if (dialog !== null && dialog.open) {
         closedByCleanup.current = true
@@ -103,7 +107,7 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
           <>
             <p>
               월 기본 요금 {formatUsdCents(detail.pricing.monthly_base_fee_usd_cents)}
-              <SourceCitation sources={detail.sources} sourceId={detail.pricing.source_id} prefix={sourcePrefix} />
+              <SourceCitation planId={detail.plan.id} sources={detail.sources} sourceId={detail.pricing.source_id} />
             </p>
             {detail.pricing.exceed_behaviors.length === 0 ? null : (
               <p>
@@ -125,7 +129,7 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
             {detail.caveats.map((caveat, index) => (
               <li key={`${caveat.source_id}-${index}`} lang="en">
                 {caveat.statement}
-                <SourceCitation sources={detail.sources} sourceId={caveat.source_id} prefix={sourcePrefix} />
+                <SourceCitation planId={detail.plan.id} sources={detail.sources} sourceId={caveat.source_id} />
               </li>
             ))}
           </ul>
@@ -138,7 +142,7 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
         ) : (
           <ol className={styles.sources} aria-label="이 결과에 사용된 출처">
             {detail.sources.map((source, index) => (
-              <SourceItem key={source.id} source={source} id={`${sourcePrefix}-${index + 1}`} />
+              <SourceItem key={source.id} source={source} id={sourceElementId(detail.plan.id, index + 1)} />
             ))}
           </ol>
         )}
@@ -148,36 +152,15 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
   )
 }
 
-function SourceCitation({
-  sources,
-  sourceId,
-  prefix,
-}: {
-  sources: Source[]
-  sourceId: string
-  prefix: string
-}) {
-  const number = sourceNumber(sources, sourceId)
-  if (number === null) {
-    return null
-  }
-  return (
-    <>
-      {' '}
-      <a href={`#${prefix}-${number}`} onClick={focusSource}>
-        [출처 {number}]
-      </a>
-    </>
-  )
-}
-
-function focusSource(event: MouseEvent<HTMLAnchorElement>) {
-  event.preventDefault()
-  const href = event.currentTarget.getAttribute('href')
-  if (href === null || !href.startsWith('#')) {
+function focusRequestedSource(detail: PlanDetail, sourceId: string | null) {
+  if (sourceId === null) {
     return
   }
-  const target = document.getElementById(href.slice(1))
+  const number = sourceNumber(detail.sources, sourceId)
+  if (number === null) {
+    return
+  }
+  const target = document.getElementById(sourceElementId(detail.plan.id, number))
   if (!(target instanceof HTMLElement)) {
     return
   }

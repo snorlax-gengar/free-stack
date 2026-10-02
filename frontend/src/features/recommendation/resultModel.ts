@@ -92,6 +92,40 @@ export function sourceNumber(sources: Source[], sourceId: string): number | null
   return index + 1
 }
 
+export function sourceElementId(planId: string, number: number): string {
+  return `source-${planId}-${number}`
+}
+
+export function checkSourceIds(check: Check | QuantityCheck | PlanBudgetCheck): string[] {
+  const ids: string[] = []
+  if (isQuantityCheck(check)) {
+    if (check.limit !== null) {
+      ids.push(check.limit.source_id)
+    }
+    for (const limit of check.other_period_limits) {
+      ids.push(limit.source_id)
+    }
+  } else if (isPlanBudgetCheck(check)) {
+    if (check.pricing !== null) {
+      ids.push(check.pricing.source_id)
+    }
+  }
+  return dedupe(ids)
+}
+
+function dedupe(ids: string[]): string[] {
+  const seen = new Set<string>()
+  const unique: string[] = []
+  for (const id of ids) {
+    if (seen.has(id)) {
+      continue
+    }
+    seen.add(id)
+    unique.push(id)
+  }
+  return unique
+}
+
 export function describeCheckDetail(check: Check | QuantityCheck | PlanBudgetCheck): string | null {
   if (isQuantityCheck(check)) {
     if (check.limit !== null) {

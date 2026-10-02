@@ -185,6 +185,10 @@
   color: #1c2430;
 }
 
+.checks a {
+  white-space: nowrap;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

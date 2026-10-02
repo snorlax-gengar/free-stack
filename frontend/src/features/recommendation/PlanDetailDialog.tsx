@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, type MouseEvent } from 'react'
 import type { PlanDetail, Source } from '../../api/types.ts'
 import { formatUsdCents } from '../../lib/money.ts'
 import {
@@ -16,7 +16,11 @@ export type PlanDetailDialogProps = {
 
 export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const ignoreClose = useRef(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  // close() removes `open` before the close event, and StrictMode reopens the dialog
+  // before that event runs. The flag stays set until the event so a cleanup close
+  // is not treated as the user dismissing the dialog.
+  const closedByCleanup = useRef(false)
   const titleId = useId()
   const sourcePrefix = `source${useId().replaceAll(':', '')}`
   const label = planLabel(detail, detail.plan.id)
@@ -27,11 +31,11 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
     if (dialog !== null && !dialog.open) {
       dialog.showModal()
     }
+    closeButtonRef.current?.focus()
     return () => {
       if (dialog !== null && dialog.open) {
-        ignoreClose.current = true
+        closedByCleanup.current = true
         dialog.close()
-        ignoreClose.current = false
       }
       if (previous instanceof HTMLElement && previous.isConnected) {
         previous.focus()
@@ -40,7 +44,8 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
   }, [])
 
   function handleClose() {
-    if (ignoreClose.current) {
+    if (closedByCleanup.current) {
+      closedByCleanup.current = false
       return
     }
     onClose()
@@ -54,12 +59,20 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
       className={styles.dialog}
       onClose={handleClose}
     >
-      <button type="button" className={styles.detailButton} onClick={() => dialogRef.current?.close()}>
-        닫기
-      </button>
-      <h2 id={titleId} className={styles.dialogTitle}>
-        {label}
-      </h2>
+      <div className={styles.dialogHeader}>
+        <h2 id={titleId} className={styles.dialogTitle}>
+          {label}
+        </h2>
+        <button
+          ref={closeButtonRef}
+          type="button"
+          className={styles.detailButton}
+          onClick={() => dialogRef.current?.close()}
+        >
+          닫기
+        </button>
+      </div>
+      <div className={styles.dialogBody}>
       <section className={styles.dialogSection}>
         <h3 className={styles.dialogHeading}>제공자</h3>
         <p lang="en">{detail.provider.name}</p>
@@ -130,6 +143,7 @@ export function PlanDetailDialog({ detail, onClose }: PlanDetailDialogProps) {
           </ol>
         )}
       </section>
+      </div>
     </dialog>
   )
 }
@@ -150,15 +164,33 @@ function SourceCitation({
   return (
     <>
       {' '}
-      <a href={`#${prefix}-${number}`}>[출처 {number}]</a>
+      <a href={`#${prefix}-${number}`} onClick={focusSource}>
+        [출처 {number}]
+      </a>
     </>
   )
+}
+
+function focusSource(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
+  const href = event.currentTarget.getAttribute('href')
+  if (href === null || !href.startsWith('#')) {
+    return
+  }
+  const target = document.getElementById(href.slice(1))
+  if (!(target instanceof HTMLElement)) {
+    return
+  }
+  if (typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ block: 'nearest' })
+  }
+  target.focus()
 }
 
 function SourceItem({ source, id }: { source: Source; id: string }) {
   const link = formatSourceLink(source.url)
   return (
-    <li id={id}>
+    <li id={id} tabIndex={-1}>
       {link.href === null ? (
         <span className={styles.sourceLink}>{link.text}</span>
       ) : (

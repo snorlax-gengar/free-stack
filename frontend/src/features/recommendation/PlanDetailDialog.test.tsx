@@ -2,27 +2,29 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlanDetail, Pricing } from '../../api/types.ts'
+import { flushDialogClose, installDialogStub } from '../../test/dialog.ts'
 import { fixtureA, fixtureK } from './fixtures/recommendationResponses.ts'
 import { PlanDetailDialog } from './PlanDetailDialog.tsx'
 
-const originalShowModal = HTMLDialogElement.prototype.showModal
-const originalClose = HTMLDialogElement.prototype.close
-
 describe('PlanDetailDialog', () => {
+  let dialogStub: ReturnType<typeof installDialogStub>
+
   beforeEach(() => {
-    HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-      this.setAttribute('open', '')
-    }
-    HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
-      this.removeAttribute('open')
-      this.dispatchEvent(new Event('close'))
-    }
+    dialogStub = installDialogStub()
   })
 
   afterEach(() => {
     cleanup()
-    HTMLDialogElement.prototype.showModal = originalShowModal
-    HTMLDialogElement.prototype.close = originalClose
+    dialogStub.restore()
+  })
+
+  it('opens with showModal and focuses the close button', () => {
+    renderDialog(renderPlan())
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialogStub.showModal).toHaveBeenCalled()
+    expect(dialog.hasAttribute('open')).toBe(true)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '닫기' }))
   })
 
   it('shows the plan label, catalog text, and capabilities', () => {
@@ -152,41 +154,68 @@ describe('PlanDetailDialog', () => {
     expect(lastCitation.getAttribute('href')).toBe(`#${sources[0]?.id}`)
   })
 
-  it('notifies the parent from the close button and the close event', () => {
+  it('notifies the parent when the close button fires the close event', async () => {
     const onClose = vi.fn()
     renderDialog(renderPlan(), onClose)
 
-    const dialog = screen.getByRole('dialog')
     fireEvent.click(screen.getByRole('button', { name: '닫기' }))
+    expect(onClose).not.toHaveBeenCalled()
+    await flushDialogClose()
     expect(onClose).toHaveBeenCalledTimes(1)
-
-    dialog.dispatchEvent(new Event('close'))
-    expect(onClose).toHaveBeenCalledTimes(2)
   })
 
-  it('does not treat a strict-mode remount as a user close', () => {
+  it('notifies the parent from a native close event', () => {
+    const onClose = vi.fn()
+    renderDialog(renderPlan(), onClose)
+
+    screen.getByRole('dialog').dispatchEvent(new Event('close'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not treat a strict-mode remount as a user close', async () => {
     const onClose = vi.fn()
     render(
       <StrictMode>
         <PlanDetailDialog detail={renderPlan()} onClose={onClose} />
       </StrictMode>,
     )
+    await flushDialogClose()
 
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByRole('dialog', { name: 'Render · Web Service · Free' })).toBeTruthy()
+    const dialog = screen.getByRole('dialog', { name: 'Render · Web Service · Free' })
+    expect(dialog.hasAttribute('open')).toBe(true)
   })
 
-  it('restores focus when the dialog unmounts', () => {
+  it('closes on unmount without notifying the parent and restores focus', async () => {
+    const onClose = vi.fn()
     const opener = document.createElement('button')
     opener.textContent = '열기'
     document.body.append(opener)
     opener.focus()
-    const { unmount } = render(<PlanDetailDialog detail={renderPlan()} onClose={() => undefined} />)
+    const { unmount } = render(<PlanDetailDialog detail={renderPlan()} onClose={onClose} />)
 
     unmount()
+    await flushDialogClose()
 
+    expect(onClose).not.toHaveBeenCalled()
     expect(document.activeElement).toBe(opener)
     opener.remove()
+  })
+
+  it('moves focus to the cited source without changing the URL hash', () => {
+    const onClose = vi.fn()
+    renderDialog(renderPlan(), onClose)
+    const hash = window.location.hash
+
+    const citation = within(screen.getByRole('list', { name: '주의사항' })).getAllByRole('link', { name: '[출처 2]' })[0]
+    expect(citation).toBeDefined()
+    fireEvent.click(citation!)
+
+    const source = within(screen.getByRole('list', { name: '이 결과에 사용된 출처' })).getAllByRole('listitem')[1]
+    expect(document.activeElement).toBe(source)
+    expect(window.location.hash).toBe(hash)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeTruthy()
   })
 })
 

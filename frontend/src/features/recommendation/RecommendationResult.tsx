@@ -1,7 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { RecommendationResponse } from '../../api/types.ts'
+import type { Composition, RecommendationResponse } from '../../api/types.ts'
 import { featureLabels } from '../../labels/features.ts'
-import { compositionStatusLabels, labelOf, limitMetricLabels } from '../../labels/recommendation.ts'
+import {
+  blockReasonLabels,
+  compositionStatusLabels,
+  labelOf,
+  limitMetricLabels,
+} from '../../labels/recommendation.ts'
 import { formatBytes } from '../../lib/units.ts'
 import { assertNever } from '../../lib/assertNever.ts'
 import { formatBudgetLimit } from './resultModel.ts'
@@ -42,8 +47,14 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
         <p>{formatBudgetLimit(requirement.monthly_budget_usd_cents)}</p>
       </div>
       {renderComposition(response, setOpenPlanId)}
+      <UnevaluatedFeatures features={response.unevaluated_features} />
       {response.roles.length > 0 ? (
-        <RoleEvaluations roles={response.roles} plans={response.plans} onOpenPlan={setOpenPlanId} />
+        <RoleEvaluations
+          roles={response.roles}
+          plans={response.plans}
+          onOpenPlan={setOpenPlanId}
+          initiallyOpenRoles={response.composition.blocked_roles.map((role) => role.feature)}
+        />
       ) : null}
       {openDetail === undefined ? null : (
         <PlanDetailDialog detail={openDetail} onClose={() => setOpenPlanId(null)} />
@@ -72,25 +83,91 @@ function QuantityLine({
 function renderComposition(response: RecommendationResponse, onOpenPlan: (planId: string) => void) {
   switch (response.composition.status) {
     case 'composed':
-      return (
-        <>
-          <CompositionResult composition={response.composition} plans={response.plans} onOpenPlan={onOpenPlan} />
-          <UnevaluatedFeatures features={response.unevaluated_features} />
-        </>
-      )
+      return <CompositionResult composition={response.composition} plans={response.plans} onOpenPlan={onOpenPlan} />
     case 'blocked':
+      return <BlockedComposition composition={response.composition} />
     case 'too-many-combinations':
+      return <TooManyCombinations count={response.composition.combination_count} />
     case 'no-roles':
-      return <p>{labelOf(response.composition.status, compositionStatusLabels)}</p>
+      return <NoRoles />
     default:
       return assertNever(response.composition.status)
   }
 }
 
+function BlockedComposition({ composition }: { composition: Composition }) {
+  const headingId = useId()
+  return (
+    <section className={styles.statusNote} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.groupTitle}>
+        {labelOf('blocked', compositionStatusLabels)}
+      </h3>
+      <p>다음 역할에서 사용 가능한 플랜을 찾지 못했습니다.</p>
+      {composition.blocked_roles.length === 0 ? null : (
+        <ul className={styles.statusList} aria-label="막힌 역할">
+          {composition.blocked_roles.map((role) => (
+            <li key={role.feature}>
+              <p>{featureLabels[role.feature]}</p>
+              <p>{labelOf(role.reason, blockReasonLabels)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function TooManyCombinations({ count }: { count: number }) {
+  const headingId = useId()
+  const formatted = formatCombinationCount(count)
+  return (
+    <section className={styles.statusNote} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.groupTitle}>
+        {labelOf('too-many-combinations', compositionStatusLabels)}
+      </h3>
+      {formatted === null ? null : (
+        <p>
+          현재 조건에서 {formatted}개의 조합이 만들어질 수 있어 모든 조합을 표시하지 않았습니다.
+        </p>
+      )}
+    </section>
+  )
+}
+
+function formatCombinationCount(count: number): string | null {
+  if (!Number.isSafeInteger(count) || count < 0) {
+    return null
+  }
+  return count.toLocaleString('ko-KR')
+}
+
+function NoRoles() {
+  const headingId = useId()
+  return (
+    <section className={styles.statusNote} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.groupTitle}>
+        {labelOf('no-roles', compositionStatusLabels)}
+      </h3>
+      <p>선택한 기능 중 현재 추천 엔진에서 평가하는 기능이 없습니다.</p>
+    </section>
+  )
+}
+
 function UnevaluatedFeatures({ features }: { features: RecommendationResponse['unevaluated_features'] }) {
+  const headingId = useId()
   if (features.length === 0) {
     return null
   }
-  const names = features.map((feature) => featureLabels[feature]).join(', ')
-  return <p>평가되지 않은 기능: {names}</p>
+  return (
+    <section className={styles.statusNote} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.groupTitle}>
+        평가하지 않은 기능
+      </h3>
+      <ul className={styles.statusList} aria-label="평가하지 않은 기능">
+        {features.map((feature) => (
+          <li key={feature}>{featureLabels[feature]}</li>
+        ))}
+      </ul>
+    </section>
+  )
 }

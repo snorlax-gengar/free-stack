@@ -29,9 +29,16 @@ export type RoleEvaluationsProps = {
   roles: RoleEvaluation[]
   plans: RecommendationResponse['plans']
   onOpenPlan: (planId: string) => void
+  initiallyOpenRoles?: readonly RoleEvaluation['role'][]
 }
 
-export function RoleEvaluations({ roles, plans, onOpenPlan }: RoleEvaluationsProps) {
+export function RoleEvaluations({
+  roles,
+  plans,
+  onOpenPlan,
+  initiallyOpenRoles = [],
+}: RoleEvaluationsProps) {
+  const openRoles = new Set(initiallyOpenRoles)
   const headingId = useId()
 
   return (
@@ -43,9 +50,15 @@ export function RoleEvaluations({ roles, plans, onOpenPlan }: RoleEvaluationsPro
       {roles.map((role) => {
         const groups = byStatus(role)
         return (
-          <details key={role.role} className={styles.role}>
+          <details
+            key={role.role}
+            className={styles.role}
+            {...(openRoles.has(role.role) ? { open: true } : {})}
+          >
             <summary className={styles.roleSummary}>{roleSummary(role, groups)}</summary>
-            {groups.map((group) => (
+            {groups.length === 0 ? (
+              <p>사용 가능한 후보가 없습니다.</p>
+            ) : groups.map((group) => (
               <div key={group.status} className={styles.candidateGroup}>
                 <h4 className={styles.stackTitle}>
                   {labelOf(group.status, evaluationStatusLabels)} ({group.evaluations.length})

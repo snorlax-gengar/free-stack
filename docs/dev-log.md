@@ -1512,3 +1512,49 @@ Stack Plan과 Role 후보 Plan에서 같은 Plan Detail dialog를 연다. Backen
 - `npm run lint` — 통과.
 - `uv run pytest` — 501 passed.
 - `git diff --check` — 통과. CRLF 경고만 있다.
+
+## FREE-014 PR3-4-1 Dialog 안정화
+
+### Goal
+
+Plan Detail Dialog가 StrictMode에서 열리자마자 닫히지 않게 하고, 모바일에서 닫기 버튼이 남으며, 출처 인용이 URL hash를 바꾸지 않게 한다.
+
+### Implemented
+
+- cleanup의 `close()`는 `closedByCleanup`을 이벤트 처리 전까지 유지한다. `close()`가 `open`을 먼저 지우고, StrictMode가 dialog를 다시 연 뒤에 `close` 이벤트가 도착할 수 있어서 `dialog.open`으로는 사용자 닫기와 cleanup을 구분하지 않는다.
+- 닫기 버튼과 Escape의 `close` 이벤트는 `onClose()`를 호출한다. cleanup에서 난 `close`는 호출하지 않는다.
+- Dialog는 header와 스크롤되는 body로 나뉜다. 제목과 닫기 버튼은 body 스크롤 밖에 있고, 닫기 버튼은 내용 폭으로 늘어나지 않는다.
+- `[출처 n]`은 기본 anchor 이동을 막고 해당 Source `<li>`로 focus를 옮긴다. URL hash는 바꾸지 않는다.
+- `showModal`/`close` stub은 `src/test/dialog.ts` 하나로 모았다. `close` 이벤트는 다음 microtask에서 발생한다.
+
+### Testing
+
+- StrictMode remount, unmount, 닫기 버튼, native close, source citation, 다시 열기를 테스트했다.
+- `npm test` — 151 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과.
+- `uv run pytest` — 501 passed.
+
+## FREE-014 PR3-4-2 Abnormal Composition Status UX
+
+### Goal
+
+`blocked`, `too-many-combinations`, `no-roles`에서 조합이 만들어지지 않은 이유를 결과 화면에 설명한다. Backend와 API 계약은 바꾸지 않는다.
+
+### Implemented
+
+- `blocked`는 기존 상태 라벨 `조합 불가` 아래에, 막힌 역할과 `blockReasonLabels`(`후보 없음`, `모두 미충족`)를 목록으로 보여 준다. reason enum 문자열은 그대로 보이지 않는다.
+- `too-many-combinations`는 `combination_count`를 `ko-KR` 천 단위로 설명한다. 0은 `0`으로 표시한다. 정수가 아니거나 음수면 개수 문장만 생략한다. 응답 타입의 `combination_count`는 `number`라서 `null`은 계약에 없다.
+- `no-roles`는 기존 라벨 `평가할 역할 없음`과 함께, 선택한 기능 중 현재 평가하는 기능이 없다는 문장을 보여 준다.
+- 최상위 `unevaluated_features`는 조합 상태 설명과 별도의 `평가하지 않은 기능` 목록이다. 어느 상태에서든 목록이 비어 있지 않으면 표시한다.
+- `RoleEvaluations`에서 `blocked_roles`에 있는 역할만 `<details open>`으로 시작한다. 후보 그룹이 없는 역할은 빈 목록 대신 `사용 가능한 후보가 없습니다.`를 보여 준다.
+- Fixture 파일은 바꾸지 않았다. `1,248`과 `0`, 그리고 blocked/too-many에 붙인 `ai-api`는 기존 fixture를 테스트에서 펼친 값이다. API에 없는 필드는 넣지 않았다.
+
+### Testing
+
+- `npm test` — 160 passed.
+- `npm run build` — 통과.
+- `npm run lint` — 통과. `src/test/dialog.ts`의 `no-this-alias` warning은 PR3-4-1 stub에 있던 것이고 exit code는 0이다.
+- `uv run pytest` — 501 passed.
+- `git diff --check` — 통과. CRLF 경고만 있다.
+- 브라우저에서 `blocked`와 `no-roles`를 조작하는 승인이 중간에 끊겨 375/768/1280 확인은 하지 못했다. 현재 seed의 최대 `combination_count`는 2이고 서버 한도는 10이라, 한도를 바꾸지 않으면 `too-many-combinations`는 라이브 응답으로 나오지 않는다.

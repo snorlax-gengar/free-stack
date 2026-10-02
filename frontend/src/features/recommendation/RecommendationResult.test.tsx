@@ -1,8 +1,12 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { RecommendationResponse } from '../../api/types.ts'
+import { flushDialogClose, installDialogStub } from '../../test/dialog.ts'
 import {
   fixtureA,
   fixtureB,
+  fixtureB2,
   fixtureC,
   fixtureD,
   fixtureE,
@@ -12,24 +16,16 @@ import {
 } from './fixtures/recommendationResponses.ts'
 import { RecommendationResult } from './RecommendationResult.tsx'
 
-const originalShowModal = HTMLDialogElement.prototype.showModal
-const originalClose = HTMLDialogElement.prototype.close
-
 describe('RecommendationResult', () => {
+  let dialogStub: ReturnType<typeof installDialogStub>
+
   beforeEach(() => {
-    HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-      this.setAttribute('open', '')
-    }
-    HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
-      this.removeAttribute('open')
-      this.dispatchEvent(new Event('close'))
-    }
+    dialogStub = installDialogStub()
   })
 
   afterEach(() => {
     cleanup()
-    HTMLDialogElement.prototype.showModal = originalShowModal
-    HTMLDialogElement.prototype.close = originalClose
+    dialogStub.restore()
   })
 
   it('renders a composed result from fixture A and focuses the heading', () => {
@@ -89,21 +85,98 @@ describe('RecommendationResult', () => {
   it('shows unevaluated features beside a composed result for fixture D', () => {
     render(<RecommendationResult response={fixtureD} />)
 
-    expect(screen.getByText('평가되지 않은 기능: AI API')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '평가하지 않은 기능' })).toBeTruthy()
+    expect(within(screen.getByRole('list', { name: '평가하지 않은 기능' })).getByText('AI API')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Cloudflare Pages' })).toBeTruthy()
     expect(screen.getByText(/조합 1개를 구성했습니다/)).toBeTruthy()
   })
 
   it.each([
-    ['blocked', fixtureB, '조합 불가'],
-    ['no-roles', fixtureC, '평가할 역할 없음'],
-    ['too-many-combinations', fixtureE, '조합이 너무 많음'],
-  ] as const)('shows only the %s status label', (_status, response, label) => {
+    ['blocked', fixtureB],
+    ['no-roles', fixtureC],
+    ['too-many-combinations', fixtureE],
+  ] as const)('does not render composed stacks for %s', (_status, response) => {
     render(<RecommendationResult response={response} />)
 
-    expect(screen.getByText(label)).toBeTruthy()
     expect(screen.queryByText(/조합 \d+개를 구성했습니다/)).toBeNull()
     expect(screen.queryByRole('list', { name: '플랜' })).toBeNull()
+  })
+
+  it('explains which roles blocked the composition', () => {
+    render(<RecommendationResult response={fixtureB} />)
+
+    expect(screen.getByRole('heading', { name: '조합 불가' })).toBeTruthy()
+    expect(screen.getByText('다음 역할에서 사용 가능한 플랜을 찾지 못했습니다.')).toBeTruthy()
+    const blocked = screen.getByRole('list', { name: '막힌 역할' })
+    expect(within(blocked).getByText('예약 작업')).toBeTruthy()
+    expect(within(blocked).getByText('후보 없음')).toBeTruthy()
+    expect(screen.queryByText('no-candidates')).toBeNull()
+
+    const scheduled = screen.getByText('예약 작업 — 평가된 후보가 없습니다').closest('details')
+    expect(scheduled?.open).toBe(true)
+    expect(within(scheduled as HTMLElement).getByText('사용 가능한 후보가 없습니다.')).toBeTruthy()
+    expect(screen.getByText(/정적 프론트엔드 —/).closest('details')?.open).toBe(false)
+  })
+
+  it('labels every incompatible blocked role and opens it', () => {
+    render(<RecommendationResult response={fixtureB2} />)
+
+    const blocked = screen.getByRole('list', { name: '막힌 역할' })
+    expect(within(blocked).getByText('인증')).toBeTruthy()
+    expect(within(blocked).getByText('실시간')).toBeTruthy()
+    expect(within(blocked).getAllByText('모두 미충족')).toHaveLength(2)
+    expect(screen.queryByText('all-incompatible')).toBeNull()
+    expect(screen.getByText(/인증 —/).closest('details')?.open).toBe(true)
+    expect(screen.getByText(/실시간 —/).closest('details')?.open).toBe(true)
+  })
+
+  it('explains how many combinations were left undisplayed', () => {
+    render(<RecommendationResult response={fixtureE} />)
+
+    expect(screen.getByRole('heading', { name: '조합이 너무 많음' })).toBeTruthy()
+    expect(screen.getByText('현재 조건에서 12개의 조합이 만들어질 수 있어 모든 조합을 표시하지 않았습니다.')).toBeTruthy()
+
+    render(
+      <RecommendationResult
+        response={{
+          ...fixtureE,
+          composition: { ...fixtureE.composition, combination_count: 1248 },
+        }}
+      />,
+    )
+    expect(screen.getByText(/1,248개의 조합/)).toBeTruthy()
+  })
+
+  it('keeps a zero combination count readable', () => {
+    render(
+      <RecommendationResult
+        response={{
+          ...fixtureE,
+          composition: { ...fixtureE.composition, combination_count: 0 },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('현재 조건에서 0개의 조합이 만들어질 수 있어 모든 조합을 표시하지 않았습니다.')).toBeTruthy()
+  })
+
+  it('explains when no role can be evaluated', () => {
+    render(<RecommendationResult response={fixtureC} />)
+
+    expect(screen.getByRole('heading', { name: '평가할 역할 없음' })).toBeTruthy()
+    expect(screen.getByText('선택한 기능 중 현재 추천 엔진에서 평가하는 기능이 없습니다.')).toBeTruthy()
+    expect(within(screen.getByRole('list', { name: '평가하지 않은 기능' })).getByText('AI API')).toBeTruthy()
+  })
+
+  it.each<[string, RecommendationResponse]>([
+    ['composed', fixtureD],
+    ['blocked', { ...fixtureB, unevaluated_features: ['ai-api'] }],
+    ['too-many-combinations', { ...fixtureE, unevaluated_features: ['ai-api'] }],
+    ['no-roles', fixtureC],
+  ])('shows unevaluated features for %s', (_status, response) => {
+    render(<RecommendationResult response={response} />)
+
+    expect(within(screen.getByRole('list', { name: '평가하지 않은 기능' })).getByText('AI API')).toBeTruthy()
   })
 
   it('shows role candidates and their checks', () => {
@@ -166,16 +239,35 @@ describe('RecommendationResult', () => {
     expect(screen.queryByText('가격 정보 없음')).toBeNull()
   })
 
-  it('opens the stack plan dialog and removes it after close', () => {
+  it('opens the stack plan dialog and removes it after close', async () => {
     render(<RecommendationResult response={fixtureA} />)
 
     const plans = screen.getByRole('list', { name: '플랜' })
-    fireEvent.click(within(plans).getByRole('button', { name: 'Supabase · Platform · Free 상세 보기' }))
+    const open = within(plans).getByRole('button', { name: 'Supabase · Platform · Free 상세 보기' })
+    fireEvent.click(open)
     expect(screen.getByRole('dialog', { name: 'Supabase · Platform · Free' })).toBeTruthy()
     expect(screen.getByText('Free Supabase plan.')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '닫기' }))
+    await flushDialogClose()
     expect(screen.queryByRole('dialog')).toBeNull()
+
+    fireEvent.click(open)
+    await flushDialogClose()
+    expect(screen.getByRole('dialog', { name: 'Supabase · Platform · Free' })).toBeTruthy()
+  })
+
+  it('keeps the dialog open under StrictMode', async () => {
+    render(
+      <StrictMode>
+        <RecommendationResult response={fixtureA} />
+      </StrictMode>,
+    )
+
+    const plans = screen.getByRole('list', { name: '플랜' })
+    fireEvent.click(within(plans).getByRole('button', { name: 'Supabase · Platform · Free 상세 보기' }))
+    await flushDialogClose()
+    expect(screen.getByRole('dialog', { name: 'Supabase · Platform · Free' })).toBeTruthy()
   })
 
   it('opens the shared Cloudflare Pages plan from either stack in one dialog', () => {

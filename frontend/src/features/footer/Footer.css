@@ -1,0 +1,103 @@
+.footer {
+  margin-top: 64px;
+  padding-top: 24px;
+}
+
+.footerDivider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
+  margin-bottom: 24px;
+}
+
+.footerContent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px 32px;
+}
+
+.footerMain {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.footerBrand {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.footerCopyright {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.footerCopyright strong {
+  color: #334155;
+  font-weight: 600;
+}
+
+.footerDisclaimer {
+  margin: 0;
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.55;
+  word-break: keep-all;
+}
+
+.footerLinks {
+  flex: 0 0 auto;
+}
+
+.footerLinkGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footerLinkTitle {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.footerLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #64748b;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.footerLink:hover {
+  color: #0f172a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.githubIcon {
+  flex-shrink: 0;
+  color: #475569;
+}
+
+.footerLink:hover .githubIcon {
+  color: #0f172a;
+}
+
+@media (max-width: 560px) {
+  .footerContent {
+    flex-direction: column;
+    gap: 20px;
+  }
+}

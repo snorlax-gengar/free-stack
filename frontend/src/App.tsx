@@ -3,6 +3,7 @@ import { getHealth } from './api/client'
 import { RecommendationResult } from './features/recommendation/RecommendationResult.tsx'
 import { RequirementForm } from './features/requirement/RequirementForm.tsx'
 import { useRecommendationSubmit } from './features/requirement/useRecommendationSubmit.ts'
+import { Footer } from './features/footer/Footer.tsx'
 import { Badge, GengarileoLogo } from 'gengarileo-design-system'
 import './App.css'
 
@@ -74,6 +75,7 @@ export default function App() {
       {submission.state.status === 'success' ? (
         <RecommendationResult response={submission.state.response} />
       ) : null}
+      <Footer />
     </main>
   )
 }

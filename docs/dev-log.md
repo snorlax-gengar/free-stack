@@ -1964,6 +1964,30 @@ Plan Detail Dialog가 StrictMode에서 열리자마자 닫히지 않게 하고, 
 - `frontend`: `npm run build` — 통과.
 - `backend`: `uv run pytest` — 501 passed.
 
+## Footer Component with Copyright, Contact, and Policy Disclaimer
+
+### Goal
+
+공개 배포 및 사용자 신뢰도를 높이기 위해 저작권 표기(제작자: snorlax-gengar), 문의 이메일(`gengarileo@gmail.com`), GitHub 저장소 링크 및 공식 무료 정책 변경 가능성에 대한 면책 조항(Disclaimer)을 담은 모던 푸터를 구현한다.
+
+### Decisions
+
+- **푸터 컴포넌트 (`frontend/src/features/footer/Footer.tsx`, `Footer.css`)**:
+  - 저작권: `© 2026 FreeStack. Designed & Built by snorlax-gengar.`
+  - 연락처: 이메일 링크(`mailto:gengarileo@gmail.com`) 및 SVG 아이콘이 포함된 GitHub 공식 저장소 링크(`https://github.com/snorlax-gengar/free-stack`).
+  - 면책 조항: 각 서비스 공식 문서를 기반으로 수집·검증되었으나 제공사 정책에 따라 예고 없이 변경될 수 있음을 명시하여 신뢰성 확보.
+  - 반응형 디바이더 및 부드러운 그라데이션 선 적용.
+- **앱 레이아웃 연동 (`App.tsx`)**:
+  - 메인 셸의 최하단에 `<Footer />` 배치.
+
+### Testing
+
+- `frontend`: `npm test` — 21개 테스트 파일, 189 passed.
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+
 
 
 

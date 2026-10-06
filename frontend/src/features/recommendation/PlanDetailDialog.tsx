@@ -8,6 +8,7 @@ import {
 } from '../../labels/recommendation.ts'
 import { formatCheckedAt, formatSourceLink, planLabel, sourceElementId, sourceNumber } from './resultModel.ts'
 import { SourceCitation } from './SourceCitation.tsx'
+import { ProviderIcon } from './ProviderIcon.tsx'
 import styles from './RecommendationResult.module.css'
 
 export type PlanDetailDialogProps = {
@@ -64,9 +65,14 @@ export function PlanDetailDialog({ detail, onClose, focusSourceId = null }: Plan
       onClose={handleClose}
     >
       <div className={styles.dialogHeader}>
-        <h2 id={titleId} className={styles.dialogTitle}>
-          {label}
-        </h2>
+        <div className={styles.dialogTitleGroup}>
+          <span className={styles.planIconWrapper}>
+            <ProviderIcon providerId={detail.provider.id} size="md" />
+          </span>
+          <h2 id={titleId} className={styles.dialogTitle}>
+            {label}
+          </h2>
+        </div>
         <button
           ref={closeButtonRef}
           type="button"

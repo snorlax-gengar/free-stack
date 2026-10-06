@@ -13,6 +13,8 @@ import { formatBudgetLimit } from './resultModel.ts'
 import { CompositionResult } from './CompositionResult.tsx'
 import { PlanDetailDialog } from './PlanDetailDialog.tsx'
 import { RoleEvaluations } from './RoleEvaluations.tsx'
+import { ProviderIcon } from './ProviderIcon.tsx'
+import { PROVIDER_ATTRIBUTIONS } from './providerAttributions.ts'
 import styles from './RecommendationResult.module.css'
 
 export type RecommendationResultProps = {
@@ -59,6 +61,7 @@ export function RecommendationResult({ response }: RecommendationResultProps) {
           initiallyOpenRoles={response.composition.blocked_roles.map((role) => role.feature)}
         />
       ) : null}
+      <BrandAssetAttribution />
       {openDetail === undefined ? null : (
         <PlanDetailDialog
           detail={openDetail}
@@ -228,3 +231,38 @@ function UnevaluatedFeatures({ features }: { features: RecommendationResponse['u
     </section>
   )
 }
+
+function BrandAssetAttribution() {
+  const headingId = useId()
+  return (
+    <aside className={styles.attributionCard} aria-labelledby={headingId}>
+      <div className={styles.attributionHeader}>
+        <h4 id={headingId} className={styles.attributionHeading}>
+          서비스 로고 및 아이콘 출처
+        </h4>
+        <p className={styles.attributionSub}>
+          추천 결과에 표시된 각 인프라 서비스의 로고 및 상표권은 해당 권리자에게 귀속됩니다.
+        </p>
+      </div>
+      <ul className={styles.attributionList} aria-label="아이콘 출처 목록">
+        {PROVIDER_ATTRIBUTIONS.map((item) => (
+          <li key={item.providerId} className={styles.attributionItem}>
+            <span className={styles.attributionIconWrap}>
+              <ProviderIcon providerId={item.providerId} size="sm" />
+            </span>
+            <span className={styles.attributionName}>{item.name}</span>
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={styles.attributionLink}
+            >
+              {item.sourceName} ↗
+            </a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+  )
+}
+

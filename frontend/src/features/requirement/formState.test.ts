@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { formReducer, initialFormValues, type RequirementFormValues } from './formState.ts'
+import {
+  formReducer,
+  initialFormValues,
+  PROJECT_TEMPLATES,
+  type RequirementFormValues,
+} from './formState.ts'
 
 describe('formReducer', () => {
   it('starts with empty features, amounts, and budget', () => {
@@ -95,5 +100,33 @@ describe('formReducer', () => {
     const selected = formReducer(initialFormValues, { type: 'setBandwidthRange', range: 'over-5' })
     expect(selected.bandwidthRange).toBe('over-5')
     expect(formReducer(selected, { type: 'setBandwidthRange', range: null }).bandwidthRange).toBe(null)
+  })
+
+  it('applies a project template with pre-configured features and quantities', () => {
+    const state = formReducer(initialFormValues, {
+      type: 'applyProjectTemplate',
+      template: {
+        id: 'fullstack',
+        label: '풀스택 웹 서비스 (MVP)',
+        description: '',
+        features: ['static-frontend', 'database', 'authentication'],
+        bandwidthRange: 'up-to-5',
+        budgetAmount: '0',
+        quantities: {
+          databaseSize: { amount: '500', unit: 'MB' },
+        },
+      },
+    })
+    expect(state.features).toEqual(['static-frontend', 'database', 'authentication'])
+    expect(state.bandwidthRange).toBe('up-to-5')
+    expect(state.budgetAmount).toBe('0')
+    expect(state.quantities.databaseSize).toEqual({ amount: '500', unit: 'MB' })
+  })
+
+  it('configures PROJECT_TEMPLATES with empty budget and null bandwidth for compatible matching', () => {
+    for (const tpl of PROJECT_TEMPLATES) {
+      expect(tpl.budgetAmount).toBe('')
+      expect(tpl.bandwidthRange).toBe(null)
+    }
   })
 })

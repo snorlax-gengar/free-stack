@@ -6,6 +6,7 @@ import { AmountField } from './AmountField.tsx'
 import {
   BANDWIDTH_RANGES,
   BUDGET_PRESETS,
+  PROJECT_TEMPLATES,
   QUANTITY_FIELDS,
   formReducer,
   initialFormValues,
@@ -51,6 +52,34 @@ export function RequirementForm({ submitting, error, onSubmit }: RequirementForm
       <div className={styles.hero}>
         <p className={styles.heroTitle}>내 프로젝트에 필요한 기능을 선택하세요.</p>
         <p className={styles.heroText}>조건을 입력하면 적합한 인프라 조합을 찾아드립니다.</p>
+      </div>
+      <div className={styles.templateSection}>
+        <div className={styles.templateHeader}>
+          <span className={styles.templateBadge}>템플릿</span>
+          <p className={styles.templateTitle}>비전공자를 위한 맞춤 템플릿</p>
+        </div>
+        <p className={styles.templateDesc}>
+          만들고 싶은 프로젝트 유형을 선택하면 기능과 권장 사용량이 자동으로 입력됩니다.
+        </p>
+        <div className={styles.templateCards} role="group" aria-label="프로젝트 템플릿 선택">
+          {PROJECT_TEMPLATES.map((tpl) => {
+            const isMatch =
+              values.features.length === tpl.features.length &&
+              tpl.features.every((f) => values.features.includes(f))
+            return (
+              <button
+                key={tpl.id}
+                type="button"
+                className={styles.templateCard}
+                aria-pressed={isMatch}
+                onClick={() => dispatch({ type: 'applyProjectTemplate', template: tpl })}
+              >
+                <span className={styles.templateCardLabel}>{tpl.label}</span>
+                <span className={styles.templateCardDesc}>{tpl.description}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
       <div className={styles.card}>
         <fieldset className={styles.group}>
@@ -142,34 +171,62 @@ function BandwidthRangeField({
   onChange: (range: BandwidthRangeId | null) => void
 }) {
   const field = QUANTITY_FIELDS.find((item) => item.key === 'monthlyBandwidth')
+  const [isOpen, setIsOpen] = useState(range !== null)
+  const selectedRange = BANDWIDTH_RANGES.find((item) => item.id === range)
+
   return (
-    <fieldset className={styles.amount}>
-      <legend id="quantity-monthlyBandwidth-legend" className={styles.subLegend}>
-        {field?.label}
-      </legend>
-      <div className={styles.presets} role="group" aria-labelledby="quantity-monthlyBandwidth-legend">
-        {BANDWIDTH_RANGES.map((item) => (
-          <button
-            key={item.id}
-            className={styles.preset}
-            type="button"
-            aria-pressed={range === item.id}
-            onClick={() => onChange(range === item.id ? null : item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <p className={styles.hint}>{field?.hint}</p>
-    </fieldset>
+    <details
+      className={styles.bandwidthDetails}
+      open={isOpen}
+      onToggle={(e) => setIsOpen(e.currentTarget.open)}
+    >
+      <summary className={styles.bandwidthSummary}>
+        <span className={styles.bandwidthSummaryTitle}>
+          ⚙️ 고급: 월 트래픽(대역폭) 직접 설정하기
+        </span>
+        {selectedRange ? (
+          <span className={styles.bandwidthBadge}>{selectedRange.label} 적용됨</span>
+        ) : (
+          <span className={styles.bandwidthDefaultBadge}>기본: 조건 없음</span>
+        )}
+      </summary>
+      <fieldset className={styles.amount}>
+        <legend id="quantity-monthlyBandwidth-legend" className={styles.subLegend}>
+          {field?.label}
+        </legend>
+        <div className={styles.presets} role="group" aria-labelledby="quantity-monthlyBandwidth-legend">
+          {BANDWIDTH_RANGES.map((item) => (
+            <button
+              key={item.id}
+              className={styles.preset}
+              type="button"
+              aria-pressed={range === item.id}
+              onClick={() => onChange(range === item.id ? null : item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+          {range !== null && (
+            <button
+              className={styles.presetClear}
+              type="button"
+              onClick={() => onChange(null)}
+            >
+              설정 해제
+            </button>
+          )}
+        </div>
+        <p className={styles.hint}>{field?.hint}</p>
+      </fieldset>
+    </details>
   )
 }
 
 function budgetHint(currency: BudgetCurrency): string {
   if (currency === 'KRW') {
-    return '비워 두면 예산 조건 없이 추천합니다.\n0은 월 0원 상한으로 처리됩니다.\n원화는 1달러 = 1,400원으로 바꿔 비교합니다.'
+    return '비워 두면 등록된 무료 플랜들을 모두 포함해 조건 없이 추천합니다. (권장)\n0을 넣으시면 서비스별 세부 과금 정책 확인을 위해 확인 필요로 안내됩니다.\n원화는 1달러 = 1,400원으로 바꿔 비교합니다.'
   }
-  return '비워 두면 예산 조건 없이 추천합니다.\n0은 월 $0 상한으로 처리됩니다.'
+  return '비워 두면 등록된 무료 플랜들을 모두 포함해 조건 없이 추천합니다. (권장)\n0을 넣으시면 서비스별 세부 과금 정책 확인을 위해 확인 필요로 안내됩니다.'
 }
 
 function QuantityControl({

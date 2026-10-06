@@ -18,6 +18,7 @@ import {
 } from './resultModel.ts'
 import { SourceCitation } from './SourceCitation.tsx'
 import { StatusBadge } from './StatusBadge.tsx'
+import { ProviderIcon } from './ProviderIcon.tsx'
 import styles from './RecommendationResult.module.css'
 
 const scopeLabels = {
@@ -71,10 +72,16 @@ export function RoleEvaluations({
                   {group.evaluations.map((evaluation) => {
                     const detail = plans[evaluation.plan_id]
                     const label = planLabel(detail ?? null, evaluation.plan_id)
+                    const providerId = detail?.provider.id
                     return (
                     <li key={evaluation.plan_id} className={styles.candidate}>
                       <div className={styles.planIdentity}>
-                        <p>{label}</p>
+                        <div className={styles.planNameGroup}>
+                          <span className={styles.planIconWrapper}>
+                            <ProviderIcon providerId={providerId} size="md" />
+                          </span>
+                          <p>{label}</p>
+                        </div>
                         {detail === undefined ? null : (
                           <button
                             type="button"

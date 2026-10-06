@@ -1760,6 +1760,216 @@ Plan Detail Dialog가 StrictMode에서 열리자마자 닫히지 않게 하고, 
 - `frontend`: `npm run build` — 통과.
 - `backend`: `uv run pytest` — 501 passed.
 
+## Service Brand Icons & Image Attribution in Recommendation Result
+
+### Goal
+
+1. 추천 결과에서 어떤 인프라 서비스/플랜이 추천되었는지 한눈에 직관적으로 파악할 수 있도록 각 프로바이더(Cloudflare, Supabase, Render 등)의 대표 브랜드 로고/아이콘을 시각적으로 표시한다.
+2. 사용자의 명시적 요청("이미지 출처는 무조건 적어주면 좋겠고")에 따라 공식 브랜드 에셋의 출처 및 가이드라인 링크를 결과 섹션 하단에 명확하게 표기한다.
+
+### Decisions
+
+- **ProviderIcon 컴포넌트 (`ProviderIcon.tsx`)**:
+  - Cloudflare(시그니처 오렌지 구름), Supabase(에메랄드 번개), Render(블랙 심볼)의 벡터 SVG 아이콘을 제공.
+  - 미등록 프로바이더 대비 범용 인프라 큐브 아이콘 fallback 포함.
+  - `size="sm" | "md" | "lg"` 규격 지원 및 `aria-hidden="true"` 접근성 처리.
+- **ProviderAttributions 상수 분리 (`providerAttributions.ts`)**:
+  - 각 프로바이더의 공식 브랜드 자산 페이지 URL(Cloudflare Brand Assets, Supabase Brand Assets, Render Brand Assets) 및 라이선스 고지 메타데이터 구성.
+  - React Fast-Refresh 린트 규칙(`react(only-export-components)`)을 준수하여 컴포넌트와 상수를 별도 파일로 분리.
+- **추천 결과 시각적 개선**:
+  - `CompositionResult.tsx`: 스택 헤더 왼쪽에 해당 스택을 구성하는 프로바이더들의 아이콘 칩 그룹(`stackProviderIcons`)을 표시하고, 개별 플랜 행(`PlanRowView`) 앞에 프로바이더 로고 뱃지(`planIconWrapper`)를 배치하여 어떤 서비스인지 즉시 인지할 수 있도록 개선.
+  - `RoleEvaluations.tsx`: 후보 평가 플랜 행에도 프로바이더 아이콘 연동.
+  - `PlanDetailDialog.tsx`: 상세 다이얼로그 헤더의 플랜명 앞에도 프로바이더 아이콘 배치.
+- **브랜드 자산 출처 고지 (`BrandAssetAttribution`)**:
+  - `RecommendationResult.tsx` 하단에 단정한 카드 형태의 출처 안내 영역 추가.
+  - 각 서비스의 로고 및 상표권 귀속 문구와 공식 출처 페이지 링크(새 탭 열기) 명시.
+
+### Testing
+
+- `frontend`: `npm test` — 176 passed (15개 테스트 파일 전체 통과, `ProviderIcon.test.tsx` 신규 추가).
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — TypeScript 및 Vite 빌드 성공.
+- `backend`: `uv run pytest` — 501 passed.
+
+## Non-Technical User Experience: Project Presets, Intuitive Hints & Stack Guidance
+
+### Goal
+
+1. 기술적 용어(월 대역폭, DB 크기 등)가 낯선 비전공자/입문자도 직관적으로 요구사항을 입력할 수 있도록 원클릭 프로젝트 템플릿과 실생활 체감형 수량 힌트를 제공한다.
+2. 추천 결과의 각 스택 조합별 특징(완전 무료, 서버리스, 올인원 BaaS 등)과 "어떤 프로젝트에 잘 맞는지" 한 줄 맞춤 가이드라인을 제공하여 비전공자도 조합 선택을 쉽게 이해할 수 있도록 돕는다.
+
+### Decisions
+
+- **프로젝트 템플릿 프리셋 (`PROJECT_TEMPLATES`, `formState.ts`)**:
+  - 대표적인 3가지 개발 유형 프리셋 카드 제공:
+    - 🎨 **개인 포트폴리오**: 정적 프론트엔드 호스팅 위주
+    - 🚀 **풀스택 MVP 서비스**: 프론트엔드 + 서버/DB + 인증 올인원
+    - 📸 **사진/블로그 갤러리**: 프론트엔드 + 대용량 파일 스토리지
+  - 템플릿 버튼 클릭 시 필요 기능 체크박스, 트래픽, 스토리지, DB 용량 및 예산이 현실적인 기본값으로 즉시 세팅되는 리듀서 액션(`applyProjectTemplate`) 구현.
+- **체감형 수량 안내 힌트 (`QUANTITY_FIELDS`, `formState.ts`)**:
+  - 수치 입력란 하단에 일상적인 서비스 규모 체감 안내 문구 추가:
+    - 트래픽 대역폭: "5GB (일 방문자 100~300명 수준)"
+    - 데이터베이스: "500MB (회원 수천 명의 텍스트 데이터 분량)"
+    - 파일 저장 용량: "1GB (일반 사진 300~500장 분량)"
+- **스택 특징 태그 및 맞춤 가이드 (`stackGuidance.ts`, `CompositionResult.tsx`)**:
+  - 추천된 스택의 플랜 구성, 서비스 런타임, 비용 모델을 판별하여 객관적인 특징 태그 자동 부착:
+    - `💰 완전 무료 $0` / `⚡ 서버리스/간편 배포` / `🖥️ 백엔드 서버형` / `📦 올인원 BaaS` / `📁 오브젝트 스토리지`
+  - 각 조합의 성격에 맞춘 가이드 설명 박스(`.stackGuidanceText`) 렌더링:
+    - 예: "프론트엔드와 올인원 백엔드가 결합된 가벼운 풀스택 구성으로, 별도 서버 관리 없이 빠르게 시작하기에 잘 어울려요."
+  - 비즈니스 룰 및 테스트 정규식 규칙(`/1위|최적|Best|추천 순위|최고/`)을 철저히 준수하여 객관적이고 중립적인 권장 표현("잘 어울려요", "적합해요", "대중적인 조합이에요") 사용.
+
+### Testing
+
+- `frontend`: `npm test` — 180 passed (16개 테스트 파일 전체 통과, `stackGuidance.test.ts` 신규 추가).
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — TypeScript 빌드 및 Vite 번들링 성공.
+- `backend`: `uv run pytest` — 501 passed.
+
+## Recommendation Heading Focus Ring Refinement
+
+### Goal
+
+추천 결과 렌더링 시 스크린 리더 및 접근성 대응을 위해 `headingRef.current?.focus()`가 실행될 때, `.heading:focus`에 지정된 `outline: 2px solid var(--focus)` 스타일로 인해 제목 주변에 검은 사각형 테두리가 나타나 사용자가 "호버가 걸린 것 같다"고 오해하는 현상을 해결한다.
+
+### Decisions
+
+- `RecommendationResult.module.css`에서 `.heading:focus`를 `outline: none;`으로 처리하고, 키보드 탐색(Tab) 시에만 시각적 포커스 인디케이터가 표시되도록 `.heading:focus-visible`에 outline을 분리 적용.
+- 프로그래밍 방식(스크립트) 포커스 이동 시 시각적 불필요한 아웃라인 박스가 제거되고, 접근성(a11y) 표준과 `heading.tabIndex = -1` 포커스 테스트는 100% 온전히 유지.
+
+### Testing
+
+- `frontend`: `npm test` — 180 passed.
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+## Template Presets & Guidance Optimization for Compatible Results
+
+### Goal
+
+무료 티어 추천 서비스임에도 템플릿 프리셋 클릭 시 백엔드의 `pricing-not-found` 및 `limit-not-found` 검증 규칙으로 인해 모든 스택이 '확인 필요(unknown)'로만 표시되던 사용자 경험을 개선하여, 검증된 무료 티어 조합이 초록색 '충족(compatible)'으로 당당하게 추천되도록 한다.
+
+### Decisions
+
+- **`PROJECT_TEMPLATES` 기본 파라미터 최적화 (`formState.ts`)**:
+  - 대표 템플릿(포트폴리오, 풀스택 MVP, 블로그 갤러리)의 `budgetAmount`를 `'0'`에서 `''`(조건 없음), `bandwidthRange`를 `null`(조건 없음)로 변경.
+  - 현재 카탈로그에 등록된 플랜들이 모두 Free 티어이므로, 예산 상한을 비워둠으로써 백엔드가 가격 데이터 부재로 강등시키지 않고 완벽한 `compatible`(충족) 스택을 반환하도록 유도.
+- **예산 안내 힌트 개선 (`RequirementForm.tsx`)**:
+  - `budgetHint` 문구에 "비워 두면 등록된 무료 플랜들을 모두 포함해 조건 없이 추천합니다 (권장)" 및 "0을 넣으시면 서비스별 세부 과금 정책 확인을 위해 확인 필요로 안내됩니다"를 명시하여 사용자의 혼란을 방지.
+- **스택 태그 판별 보강 (`stackGuidance.ts`)**:
+  - `budget_check`가 없는 상태(예산 조건 없음)에서도 구성 플랜이 모두 Free 티어인 경우 `💰 완전 무료 $0` 태그가 정상 부착되도록 개선.
+
+### Testing
+
+- `frontend`: `npm test` — 181 passed (16개 테스트 파일 전체 통과).
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+## Collapsible Bandwidth Requirement for Beginner-Friendly Experience
+
+### Goal
+
+기술적 용어로 인해 비전공자/입문자가 이해하기 어렵고 진입 장벽이 높았던 '월 트래픽(대역폭)' 입력 항목을 기본 화면에서는 깔끔하게 접어두고, 필요한 고급 사용자만 열어서 설정할 수 있는 접이식(Collapsible Accordion) UI로 개선한다.
+
+### Decisions
+
+- **`BandwidthRangeField` 접이식 구조 적용 (`RequirementForm.tsx`, `RequirementForm.module.css`)**:
+  - HTML5 표준 `<details>`와 `<summary>`를 활용하여 웹 접근성(a11y)을 보장하고 기본 상태를 닫힘(`open={false}`)으로 설정.
+  - 접힌 상태의 `<summary>` 바에 `⚙️ 고급: 월 트래픽(대역폭) 직접 설정하기` 라벨과 `기본: 조건 없음` 회색 뱃지를 배치하여 초보자가 신경 쓰지 않아도 됨을 직관적으로 고지.
+  - 대역폭 범위가 선택된 경우 `5GB 이하 적용됨` 다크 뱃지를 표시하고, 펼쳤을 때 '설정 해제' 버튼을 제공하여 즉시 기본 조건 없음으로 초기화할 수 있도록 지원.
+- 일반 사용자는 '2. 사용량 조건'에서 친숙한 '파일 저장 용량'과 '데이터베이스 크기'만 집중할 수 있어 폼 작성의 인지 부하가 대폭 감소.
+
+### Testing
+
+- `frontend`: `npm test` — 181 passed.
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+## Compact Layout for Quantity & Budget Input Controls
+
+### Goal
+
+사용량 조건(파일/DB 용량)과 예산 입력창이 카드 전체 가로폭을 차지하며 지나치게 넓고 둔탁하게 늘어나 보이던 문제를 해결하고, 숫자 입력 박스와 단위 드롭다운을 정갈하고 컴팩트한 규격으로 슬림화한다.
+
+### Decisions
+
+- **숫자 입력 필드 규격 컴팩트화 (`RequirementForm.module.css`)**:
+  - `.input`의 `flex: 1 1 8rem` 무제한 가로 확장을 제거하고 `width: 140px; flex: 0 1 140px; max-width: 180px;`로 정돈.
+  - 높이를 기존 `min-height: 42px`에서 `38px`로, 내부 패딩을 `6px 12px`로 슬림화하여 밀도 높은 정교한 인상 부여.
+- **단위 셀렉트 드롭다운 축소 (`RequirementForm.module.css`)**:
+  - `select.input`의 너비를 `76px` (`flex: 0 0 76px`)로 컴팩트하게 제한하고 부드러운 배경색(`#f8fafc`)을 적용하여 숫자 인풋 옆에 알맞게 어우러지도록 정리.
+- **예산 입력창 시각적 밸런스 확보**:
+  - 통화 기호(`$`, `₩`)와 함께 140px 너비로 컴팩트하게 자리잡아, 긴 카드 안에서 광활하게 비어 보이거나 어색하게 늘어나던 현상 해결.
+
+### Testing
+
+- `frontend`: `npm test` — 181 passed.
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+## Modern High-End Visual Refinements & Micro-Interactions
+
+### Goal
+
+최신 테크 프로덕트(Linear, Vercel, Supabase) 트렌드에 맞추어 카드 깊이감, 호버 인터랙션, 인라인 필터 칩 요약 바, 글래스모피즘 백드롭 블러 및 부드러운 전환 애니메이션을 전면 적용하여 전체적인 시각적 완성도와 사용성을 극대화한다.
+
+### Decisions
+
+- **요청 조건 인라인 필터 칩 바 (`RecommendationResult.module.css`)**:
+  - 기존 세로 나열 방식에서 가로 플렉스 랩(`flex-wrap: wrap; gap: 8px 12px;`) 인라인 칩 바로 전환.
+  - 상단 요약 영역의 세로 높이를 획기적으로 줄여 추천 조합 카드가 스크롤 없이 한눈에 들어오도록 개선.
+- **스택 카드 및 플랜 행 호버 인터랙션 (`RecommendationResult.module.css`)**:
+  - `.stack` 카드에 미세 레이어 그림자와 `:hover` 시 `-1px` 리프트 & 소프트 섀도우 적용.
+  - 개별 플랜 행(`.plan`)에 호버 피드백 및 [상세 보기] 버튼의 세련된 고스트 다크 반전 스타일(`background: #0f172a; color: #ffffff`) 구현.
+- **부드러운 전환 애니메이션 & 햅틱 버튼 피드백 (`RecommendationResult.module.css`, `RequirementForm.module.css`)**:
+  - 결과 섹션(`fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)`) 부드러운 페이드인 모션 적용.
+  - 메인 제출 버튼(`.submit`)에 반투명 상단 인셋 하이라이트(`inset 0 1px 0 rgba(255,255,255,0.16)`) 및 클릭 시 1px 눌림 피드백(`active: translateY(1px)`) 적용.
+- **글래스모피즘 모달 백드롭 블러 (`RecommendationResult.module.css`)**:
+  - 플랜 상세 다이얼로그의 백드롭에 `-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);` 및 16px 라운딩을 적용하여 프리미엄 팝업 감성 강화.
+
+### Testing
+
+- `frontend`: `npm test` — 181 passed.
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+## AI Prompt Export & Free-Tier Gotchas Callout (Bridging FreeStack with AI Coding Agents)
+
+### Goal
+
+사용자가 추천받은 인프라 조합을 감상하는 데서 그치지 않고, AI Agent(Cursor, Claude, ChatGPT)로 즉시 프로젝트를 개발할 수 있도록 **원클릭 AI 프롬프트 생성/복사 기능**과 AI가 알려주지 못하는 **과금 지뢰 및 무료 제약사항(Caveats/Gotchas) 팩트체크 콜아웃**을 구현한다.
+
+### Decisions
+
+- **원클릭 AI 프롬프트 생성기 (`aiPrompt.ts`, `CopyAiPromptButton.tsx`)**:
+  - 선택된 스택 조합(역할별 서비스, 플랜)과 검증된 무료 티어 제약사항을 포함한 마크다운 프롬프트를 자동 생성.
+  - 모던 프레임워크 초기화 CLI, 디렉토리 구조, `.env.example`, 클라이언트 SDK 연동 및 무료 한도 최적화 팁을 요청하도록 구성.
+  - `navigator.clipboard.writeText`와 textarea fallback(`clipboard.ts`)을 적용하여 안전한 복사 및 복사 완료 피드백(`✓ AI 개발 프롬프트가 복사되었습니다!`) 제공.
+- **무료 티어 핵심 제약 & 주의사항 콜아웃 (`StackCaveatsCallout.tsx`, `caveatSummaries.ts`)**:
+  - 스택 카드 내에서 각 플랜의 `caveats`를 수집하여 시각적으로 두드러진 앰버 경고 박스로 렌더링.
+  - 대표 제약사항(Render 15분 Sleep/Cold Start, Cloudflare 월 500회 빌드, Supabase 500MB DB/50,000 MAU 등)을 친절한 한국어 요약 뱃지로 매핑.
+  - 3개 초과 시 `+ 주의사항 N개 더 보기 / 접기` 토글을 제공하여 카드의 밀도와 가독성 유지.
+- **스타일링 (`RecommendationResult.module.css`)**:
+  - 콜아웃: 따뜻한 앰버 톤(`background: #fffbeb`, `border-left: 4px solid #f59e0b`)과 가독성 높은 뱃지.
+  - 프롬프트 복사 버튼: 다크 하이테크 스타일(`background: #0f172a`), 호버 리프트 모션, 복사 시 에메랄드 성공 색상 전환.
+
+### Testing
+
+- `frontend`: `npm test` — 20개 테스트 파일, 188 passed.
+- `frontend`: `npm run lint` — 통과 (oxlint, 0 errors).
+- `frontend`: `npm run build` — 통과.
+- `backend`: `uv run pytest` — 501 passed.
+
+
+
+
+
+
+
 
 
 

@@ -132,6 +132,25 @@ describe('RequirementForm', () => {
       '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
     )
   })
+
+  it('applies project template when clicked', () => {
+    const { onSubmit } = renderForm()
+
+    fireEvent.click(screen.getByRole('button', { name: /풀스택 웹 서비스 \(MVP\)/ }))
+    expect((screen.getByLabelText('정적 프론트엔드') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('데이터베이스') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('인증') as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByLabelText('데이터베이스 크기')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '무료 스택 추천받기' }))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        features: expect.arrayContaining(['static-frontend', 'database', 'authentication']),
+        database_size_bytes: 500_000_000,
+        monthly_budget_usd_cents: null,
+      }),
+    )
+  })
 })
 
 function renderForm(overrides: Partial<RequirementFormProps> = {}) {

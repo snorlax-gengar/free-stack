@@ -399,6 +399,16 @@ describe('RecommendationResult', () => {
     expect(screen.getByRole('dialog', { name: 'Supabase · Platform · Free' })).toBeTruthy()
     expect(screen.getByText('Hosted Postgres and application backend platform.')).toBeTruthy()
   })
+
+  it('renders brand asset attributions with source links', () => {
+    render(<RecommendationResult response={fixtureA} />)
+
+    expect(screen.getByRole('heading', { level: 4, name: '서비스 로고 및 아이콘 출처' })).toBeTruthy()
+    const list = screen.getByRole('list', { name: '아이콘 출처 목록' })
+    expect(within(list).getByText('Cloudflare')).toBeTruthy()
+    expect(within(list).getByText('Supabase')).toBeTruthy()
+    expect(within(list).getByText('Render')).toBeTruthy()
+  })
 })
 
 function planRowsIn(list: HTMLElement): HTMLElement[] {
